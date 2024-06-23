@@ -2,13 +2,72 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+from pydantic import TypeAdapter
 
 import emails  # type: ignore
 from jinja2 import Template
 from jose import JWTError, jwt
 
 from app.core.config import settings
+
+import os
+import uuid
+from fastapi import UploadFile
+import qrcode
+
+
+def model_to_dict(obj, output_model):
+    return TypeAdapter(output_model).validate_python(obj)
+
+
+def generate_qr_code(data: str, directory: str) -> str:
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill="black", back_color="white")
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    qr_code_filename = f"id_{data}_qrcode.png"
+    qr_code_path = os.path.join(directory, qr_code_filename)
+    with open(qr_code_path, "wb") as file:
+        img.save(file)
+    return qr_code_filename  # 只返回文件名，而不是完整路径
+
+
+def save_file(
+    file: UploadFile, directory: str, file_type: str, id: str
+) -> Optional[str]:
+    """
+    Save the uploaded file to the specified directory with a unique filename
+    that includes the file type, id, and a unique identifier.
+    Return the file path.
+    """
+    if not file:
+        return None
+
+    # Create the specific directory for the file type if it doesn't exist
+    specific_directory = os.path.join(directory, file_type)
+    if not os.path.exists(specific_directory):
+        os.makedirs(specific_directory)
+
+    _, ext = os.path.splitext(file.filename)
+    unique_identifier = str(uuid.uuid4())
+    unique_filename = f"id_{id}_{file_type}_{unique_identifier}{ext}"
+    file_path = os.path.join(specific_directory, unique_filename)
+
+    try:
+        with open(file_path, "wb") as buffer:
+            buffer.write(file.file.read())
+    except IOError:
+        return None
+
+    return file_path
 
 
 @dataclass
