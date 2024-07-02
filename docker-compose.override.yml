@@ -1,0 +1,30 @@
+version: "3.3"
+services:
+  db:
+    ports:
+      - "5433:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  adminer:
+    ports:
+      - "8081:8080"
+
+  backend:
+    ports:
+      - "8889:80"
+    volumes:
+      - ./backend/:/app
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-true}
+    command: /start-reload.sh
+    # command: sleep infinity
+
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
