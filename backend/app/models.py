@@ -145,9 +145,44 @@ class IndividualGrowerBase(GrowerBase):
     crop_type_pic: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
 
 
+class IndividualGrowerCreate(GrowerBase):
+    name: Optional[str] = Field(None, description="联系人姓名")
+    # type: str = Field("personal", description="种植者类型，固定为personal")
+    id_card_photo: Optional[List[str]] = Field(None, description="身份证照片URL列表")
+    land_ownership_certificate: Optional[List[str]] = Field(
+        None, description="土地所有权证书URL列表"
+    )
+    crop_type_pic: Optional[List[str]] = Field(None, description="种植品种图片URL列表")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "李四",
+                "phone_number": "13900139000",
+                "email": "individual@example.com",
+                "location_coordinates": "123.456,78.901",
+                "crop_type": "水稻",
+                "crop_yield": "500吨",
+                "id_card_number": "310000199001011234",
+                "id_card_photo": [
+                    "http://example.com/id_front.jpg",
+                    "http://example.com/id_back.jpg",
+                ],
+                "land_ownership_certificate": [
+                    "http://example.com/certificate1.jpg",
+                    "http://example.com/certificate2.jpg",
+                ],
+                "crop_type_pic": [
+                    "http://example.com/crop1.jpg",
+                    "http://example.com/crop2.jpg",
+                ],
+            }
+        }
+
+
 class CompanyGrowerCreate(GrowerBase):
     company_name: str = Field(..., description="公司名称")
-    crop_type: str = Field("company", description="种植者类型，固定为'company'")
+    # type: str = Field("company", description="种植者类型，固定为'company'")
     name: Optional[str] = Field(None, description="联系人姓名")
     company_registration_number: str = Field(..., description="公司注册号")
     business_license_photo: Optional[List[str]] = Field(
