@@ -27,7 +27,7 @@ class VerificationData(BaseModel):
 router = APIRouter()
 
 
-@router.post("/verify", response_model=ResponseBase)
+@router.post("/", response_model=ResponseBase)
 async def verify_form(
     background_tasks: BackgroundTasks,
     session: SessionDep,
