@@ -63,58 +63,6 @@ async def verify_form(
     )
 
 
-def create_company_middleman(session: SessionDep, data: dict, temp_id: str):
-    middleman_data = Middleman(**data)
-    middleman = Middleman(**middleman_data.dict())
-    session.add(middleman)
-    session.commit()
-    session.refresh(middleman)
-
-    # 获取文件名
-    business_license_photo_filename = redis_client.get(
-        f"pending_form_files:{temp_id}:business_license_photo"
-    )
-    transaction_contract_filenames = redis_client.lrange(
-        f"pending_form_files:{temp_id}:transaction_contracts", 0, -1
-    )
-
-    # 更新文件路径
-    if business_license_photo_filename:
-        middleman.business_license_photo = os.path.join(
-            UPLOAD_DIRECTORY,
-            "business_license",
-            str(middleman.id),
-            business_license_photo_filename.decode(),
-        )
-
-    transaction_contract_paths = []
-    if transaction_contract_filenames:
-        for filename in transaction_contract_filenames:
-            path = os.path.join(
-                UPLOAD_DIRECTORY,
-                "transaction_contract",
-                str(middleman.id),
-                filename.decode(),
-            )
-            transaction_contract_paths.append(path)
-    middleman.transaction_contracts = transaction_contract_paths
-
-    # 生成二维码
-    qr_code_filename = generate_qr_code(str(middleman.id), QR_CODE_DIRECTORY)
-    qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
-    middleman.qr_code = qr_code_access_path
-
-    session.commit()
-    session.refresh(middleman)
-
-    return middleman
-
-
-def create_individual_grower(db: Session, data: dict, temp_id: str):
-    # 实现创建个人种植主的逻辑
-    pass
-
-
 def create_company_grower(session: SessionDep, data: dict, temp_id: str):
     grower_data = Grower(**data)
 
@@ -176,6 +124,153 @@ def create_company_grower(session: SessionDep, data: dict, temp_id: str):
     return grower
 
 
-def create_individual_middleman(db: Session, data: dict, temp_id: str):
-    # 实现创建个人中间商的逻辑
-    pass
+def create_individual_grower(session: SessionDep, data: dict, temp_id: str):
+    grower_data = Grower(**data)
+    grower = Grower(**grower_data.dict())
+    session.add(grower)
+    session.commit()
+    session.refresh(grower)
+
+    # 获取文件名
+    id_card_photo_filename = redis_client.get(
+        f"pending_form_files:{temp_id}:id_card_photo"
+    )
+    land_ownership_certificate_filename = redis_client.get(
+        f"pending_form_files:{temp_id}:land_ownership_certificate"
+    )
+    crop_type_pic_filenames = redis_client.lrange(
+        f"pending_form_files:{temp_id}:crop_type_pic", 0, -1
+    )
+
+    # 更新文件路径
+    if id_card_photo_filename:
+        grower.id_card_photo = os.path.join(
+            UPLOAD_DIRECTORY,
+            "idcard",
+            str(grower.id),
+            id_card_photo_filename.decode(),
+        )
+
+    if land_ownership_certificate_filename:
+        grower.land_ownership_certificate = os.path.join(
+            UPLOAD_DIRECTORY,
+            "land_ownership",
+            str(grower.id),
+            land_ownership_certificate_filename.decode(),
+        )
+
+    crop_type_pic_paths = []
+    if crop_type_pic_filenames:
+        for filename in crop_type_pic_filenames:
+            path = os.path.join(
+                UPLOAD_DIRECTORY,
+                "crop_type_pic",
+                str(grower.id),
+                filename.decode(),
+            )
+            crop_type_pic_paths.append(path)
+    grower.crop_type_pic = crop_type_pic_paths
+
+    # 生成二维码
+    qr_code_filename = generate_qr_code(str(grower.id), QR_CODE_DIRECTORY)
+    qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
+    grower.qr_code = qr_code_access_path
+
+    session.commit()
+    session.refresh(grower)
+
+    return grower
+
+
+def create_company_middleman(session: SessionDep, data: dict, temp_id: str):
+    middleman_data = Middleman(**data)
+    middleman = Middleman(**middleman_data.dict())
+    session.add(middleman)
+    session.commit()
+    session.refresh(middleman)
+
+    # 获取文件名
+    business_license_photo_filename = redis_client.get(
+        f"pending_form_files:{temp_id}:business_license_photo"
+    )
+    transaction_contract_filenames = redis_client.lrange(
+        f"pending_form_files:{temp_id}:transaction_contracts", 0, -1
+    )
+
+    # 更新文件路径
+    if business_license_photo_filename:
+        middleman.business_license_photo = os.path.join(
+            UPLOAD_DIRECTORY,
+            "business_license",
+            str(middleman.id),
+            business_license_photo_filename.decode(),
+        )
+
+    transaction_contract_paths = []
+    if transaction_contract_filenames:
+        for filename in transaction_contract_filenames:
+            path = os.path.join(
+                UPLOAD_DIRECTORY,
+                "transaction_contract",
+                str(middleman.id),
+                filename.decode(),
+            )
+            transaction_contract_paths.append(path)
+    middleman.transaction_contracts = transaction_contract_paths
+
+    # 生成二维码
+    qr_code_filename = generate_qr_code(str(middleman.id), QR_CODE_DIRECTORY)
+    qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
+    middleman.qr_code = qr_code_access_path
+
+    session.commit()
+    session.refresh(middleman)
+
+    return middleman
+
+
+def create_individual_middleman(session: SessionDep, data: dict, temp_id: str):
+    middleman_data = Middleman(**data)
+    middleman = Middleman(**middleman_data.dict())
+    session.add(middleman)
+    session.commit()
+    session.refresh(middleman)
+
+    # 获取文件名
+    id_card_photo_filename = redis_client.get(
+        f"pending_form_files:{temp_id}:id_card_photo"
+    )
+    transaction_contract_filenames = redis_client.lrange(
+        f"pending_form_files:{temp_id}:transaction_contracts", 0, -1
+    )
+
+    # 更新文件路径
+    if id_card_photo_filename:
+        middleman.id_card_photo = os.path.join(
+            UPLOAD_DIRECTORY,
+            "id_card",
+            str(middleman.id),
+            id_card_photo_filename.decode(),
+        )
+
+    transaction_contract_paths = []
+    if transaction_contract_filenames:
+        for filename in transaction_contract_filenames:
+            path = os.path.join(
+                UPLOAD_DIRECTORY,
+                "transaction_contract",
+                str(middleman.id),
+                filename.decode(),
+            )
+            transaction_contract_paths.append(path)
+    middleman.transaction_contracts = transaction_contract_paths
+
+    # 生成二维码
+    qr_code_filename = generate_qr_code(str(middleman.id), QR_CODE_DIRECTORY)
+    qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
+    middleman.qr_code = qr_code_access_path
+
+    session.commit()
+    session.refresh(middleman)
+
+    return middleman

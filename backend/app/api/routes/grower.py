@@ -103,6 +103,152 @@ def create_company_grower(
     )
 
 
+@router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
+def create_individual_grower(
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    name: str = Form(..., description="姓名"),
+    phone_number: str = Form(..., description="联系电话"),
+    location_coordinates: Optional[str] = Form(None, description="地块坐标"),
+    crop_type: str = Form(..., description="种植品种"),
+    crop_yield: Optional[float] = Form(None, description="种植产量"),
+    id_card_number: str = Form(..., description="身份证号", nullable=False),
+    id_card_photo: UploadFile = File(..., description="身份证照片"),
+    land_ownership_certificate: Optional[UploadFile] = File(
+        None, description="土地所有权证书"
+    ),
+    crop_type_pic: Optional[List[UploadFile]] = File(None, description="种植品种图片"),
+) -> Any:
+    """
+    Create an individual grower
+    """
+    # 生成验证码
+    code = generate_verification_code()
+    # 存储验证码
+    store_verification_code(phone_number, code)
+    # 异步发送验证码
+    background_tasks.add_task(send_verification_code, phone_number, code)
+
+    grower_data = Grower(
+        name=name,
+        phone_number=phone_number,
+        location_coordinates=location_coordinates,
+        crop_type=crop_type,
+        crop_yield=crop_yield,
+        id_card_number=id_card_number,
+        type="individual",
+    )
+
+    # 生成临时ID
+    temp_id = str(uuid.uuid4())
+
+    # 存储表单类型
+    form_type = "individual_grower"
+    redis_client.setex(f"pending_form:{temp_id}:type", 1800, form_type)
+
+    # 将种植主数据暂时存储在Redis中
+    redis_client.setex(
+        f"pending_form:{temp_id}", 1800, json.dumps(grower_data.model_dump())
+    )
+
+    # 存储文件路径到Redis（不保存文件）
+    redis_client.set(
+        f"pending_form_files:{temp_id}:id_card_photo",
+        id_card_photo.filename,
+    )
+    if land_ownership_certificate:
+        redis_client.set(
+            f"pending_form_files:{temp_id}:land_ownership_certificate",
+            land_ownership_certificate.filename,
+        )
+    if crop_type_pic:
+        for pic in crop_type_pic:
+            redis_client.rpush(
+                f"pending_form_files:{temp_id}:crop_type_pic",
+                pic.filename,
+            )
+
+    return ResponseBase(
+        message="Individual grower created successfully. Please verify.",
+        code=200,
+        data={"temp_id": temp_id},
+    )
+
+
+# @router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
+# def create_individual_grower(
+#     session: SessionDep,
+#     name: str = Form(..., description="姓名"),
+#     phone_number: str = Form(..., description="联系电话"),
+#     location_coordinates: Optional[str] = Form(None, description="地块坐标"),
+#     crop_type: str = Form(..., description="种植品种"),
+#     crop_yield: Optional[float] = Form(None, description="种植产量"),
+#     id_card_number: str = Form(..., description="身份证号", nullable=False),
+#     id_card_photo: UploadFile = File(..., description="身份证照片"),
+#     land_ownership_certificate: Optional[UploadFile] = File(
+#         None, description="土地所有权证书"
+#     ),
+#     crop_type_pic: Optional[List[UploadFile]] = File(None, description="种植品种图片"),
+# ) -> Any:
+#     """
+#     Create an individual grower
+#     """
+#     # First, create the grower record with placeholder values for file paths
+#     grower_data = {
+#         "name": name,
+#         "phone_number": phone_number,
+#         "location_coordinates": location_coordinates,
+#         "crop_type": crop_type,
+#         "crop_yield": crop_yield,
+#         "id_card_number": id_card_number,
+#         "id_card_photo": "placeholder",
+#         "land_ownership_certificate": "placeholder",
+#         "crop_type_pic": [],
+#         "type": "individual",
+#         "qr_code": "placeholder",
+#     }
+
+#     grower = Grower(**grower_data)
+#     session.add(grower)
+#     session.commit()
+#     session.refresh(grower)
+
+#     # Now use the actual grower.id to save files
+#     id_card_photo_path = save_file(
+#         id_card_photo, UPLOAD_DIRECTORY, "idcard", str(grower.id)
+#     )
+#     land_ownership_certificate_path = save_file(
+#         land_ownership_certificate, UPLOAD_DIRECTORY, "land_ownership", str(grower.id)
+#     )
+
+#     # Save multiple crop_type_pic files
+#     crop_type_pic_paths = []
+#     if crop_type_pic:
+#         for pic in crop_type_pic:
+#             pic_path = save_file(pic, UPLOAD_DIRECTORY, "crop_type_pic", str(grower.id))
+#             crop_type_pic_paths.append(pic_path)
+
+#     # Update the grower record with actual file paths
+#     grower.id_card_photo = id_card_photo_path
+#     grower.land_ownership_certificate = land_ownership_certificate_path
+#     grower.crop_type_pic = crop_type_pic_paths
+
+#     # Generate QR code
+#     qr_code_content = f"upload/qrcode/{grower.id}".replace("/", ",,")
+#     qr_code_filename = generate_qr_code(str(grower.id), QR_CODE_DIRECTORY)
+
+#     # 构造 QR 码的访问路径
+#     qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
+
+#     # 更新种植主的二维码字段
+#     grower.qr_code = qr_code_access_path
+
+#     session.commit()
+#     session.refresh(grower)
+
+#     return ResponseBase(message="Grower created successfully.", code=200, data=grower)
+
+
 # @router.post("/company", response_model=ResponseBase, summary="创建企业种植主")
 # def create_company_grower(
 #     session: SessionDep,
@@ -179,80 +325,6 @@ def create_company_grower(
 #     return ResponseBase(
 #         message="Company grower created successfully.", code=200, data=grower
 #     )
-
-
-@router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
-def create_individual_grower(
-    session: SessionDep,
-    name: str = Form(..., description="姓名"),
-    phone_number: str = Form(..., description="联系电话"),
-    location_coordinates: Optional[str] = Form(None, description="地块坐标"),
-    crop_type: str = Form(..., description="种植品种"),
-    crop_yield: Optional[float] = Form(None, description="种植产量"),
-    id_card_number: str = Form(..., description="身份证号", nullable=False),
-    id_card_photo: UploadFile = File(..., description="身份证照片"),
-    land_ownership_certificate: Optional[UploadFile] = File(
-        None, description="土地所有权证书"
-    ),
-    crop_type_pic: Optional[List[UploadFile]] = File(None, description="种植品种图片"),
-) -> Any:
-    """
-    Create an individual grower
-    """
-    # First, create the grower record with placeholder values for file paths
-    grower_data = {
-        "name": name,
-        "phone_number": phone_number,
-        "location_coordinates": location_coordinates,
-        "crop_type": crop_type,
-        "crop_yield": crop_yield,
-        "id_card_number": id_card_number,
-        "id_card_photo": "placeholder",
-        "land_ownership_certificate": "placeholder",
-        "crop_type_pic": [],
-        "type": "individual",
-        "qr_code": "placeholder",
-    }
-
-    grower = Grower(**grower_data)
-    session.add(grower)
-    session.commit()
-    session.refresh(grower)
-
-    # Now use the actual grower.id to save files
-    id_card_photo_path = save_file(
-        id_card_photo, UPLOAD_DIRECTORY, "idcard", str(grower.id)
-    )
-    land_ownership_certificate_path = save_file(
-        land_ownership_certificate, UPLOAD_DIRECTORY, "land_ownership", str(grower.id)
-    )
-
-    # Save multiple crop_type_pic files
-    crop_type_pic_paths = []
-    if crop_type_pic:
-        for pic in crop_type_pic:
-            pic_path = save_file(pic, UPLOAD_DIRECTORY, "crop_type_pic", str(grower.id))
-            crop_type_pic_paths.append(pic_path)
-
-    # Update the grower record with actual file paths
-    grower.id_card_photo = id_card_photo_path
-    grower.land_ownership_certificate = land_ownership_certificate_path
-    grower.crop_type_pic = crop_type_pic_paths
-
-    # Generate QR code
-    qr_code_content = f"upload/qrcode/{grower.id}".replace("/", ",,")
-    qr_code_filename = generate_qr_code(str(grower.id), QR_CODE_DIRECTORY)
-
-    # 构造 QR 码的访问路径
-    qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
-
-    # 更新种植主的二维码字段
-    grower.qr_code = qr_code_access_path
-
-    session.commit()
-    session.refresh(grower)
-
-    return ResponseBase(message="Grower created successfully.", code=200, data=grower)
 
 
 @router.get("/", response_model=ResponseBase[GrowersOut])
