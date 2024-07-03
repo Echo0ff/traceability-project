@@ -153,7 +153,7 @@ class CompanyGrowerCreate(GrowerBase):
     business_license_photo: Optional[List[str]] = Field(
         None, description="营业执照照片URL列表"
     )
-    id_card_pics: Optional[List[str]] = Field(None, description="身份证照片URL列表")
+    id_card_photo: Optional[List[str]] = Field(None, description="身份证照片URL列表")
     land_ownership_certificate: Optional[List[str]] = Field(
         None, description="土地所有权证书URL列表"
     )
@@ -174,7 +174,7 @@ class CompanyGrowerCreate(GrowerBase):
                     "http://example.com/license1.jpg",
                     "http://example.com/license2.jpg",
                 ],
-                "id_card_pics": [
+                "id_card_photo": [
                     "http://example.com/id_front.jpg",
                     "http://example.com/id_back.jpg",
                 ],

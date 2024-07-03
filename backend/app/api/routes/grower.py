@@ -57,6 +57,7 @@ async def create_company_grower(
             "business_license_photo": grower_data.business_license_photo,
             "land_ownership_certificate": grower_data.land_ownership_certificate,
             "crop_type_pic": grower_data.crop_type_pic,
+            "id_card_photo": grower_data.id_card_photo,
         },
     }
 

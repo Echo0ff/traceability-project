@@ -6,6 +6,7 @@ from typing import List
 from pydantic import BaseModel
 from fastapi import APIRouter, Form, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
+from urllib.parse import urlparse
 
 from app.api.deps import SessionDep
 from app.models import Middleman, Grower, ResponseBase, CompanyGrowerCreate
@@ -32,6 +33,8 @@ async def verify_form(
     session: SessionDep,
     verification_data: VerificationData,
 ):
+    # localhost/uploads/temp/WechatIMG323.jpg
+    #
     # 获取待验证的数据
     pending_data = redis_client.get(f"pending_form:{verification_data.temp_id}")
     if not pending_data:
@@ -49,10 +52,13 @@ async def verify_form(
     if not verify_code(
         grower_data["phone_number"], verification_data.verification_code
     ):
-        raise HTTPException(status_code=400, detail="Invalid verification code")
+        return ResponseBase(code=400, message="Invalid verification code")
 
     # 根据表单类型执行不同的操作
     if form_type == "company_grower":
+        logger.info(
+            f"grower_data: {grower_data}, files:{files}, temp_id: {verification_data.temp_id}"
+        )
         result = await create_company_grower(
             session, grower_data, files, verification_data.temp_id
         )
@@ -89,10 +95,14 @@ async def create_company_grower(
     crop_type_pics = await save_files(
         files.get("crop_type_pic", []), "crop_type_pic", grower.id
     )
+    id_card_photo = await save_files(
+        files.get("id_card_photo", []), "idcard", grower.id
+    )
 
     grower.business_license_photos = business_license_photos
     grower.land_ownership_certificate = land_ownership_certificates
     grower.crop_type_pic = crop_type_pics
+    grower.id_card_photo = id_card_photo
 
     # 生成二维码
     qr_code_filename = generate_qr_code(str(grower.id), QR_CODE_DIRECTORY)
@@ -105,36 +115,48 @@ async def create_company_grower(
     return grower
 
 
-async def save_files(file_paths: List[str], folder: str, grower_id: int) -> List[str]:
+async def save_files(file_urls: List[str], folder: str, grower_id: int) -> List[str]:
     saved_paths = []
-    for file_path in file_paths:
-        if not os.path.exists(file_path):
-            logger.error(f"File not found: {file_path}")
+    for file_url in file_urls:
+        # 解析 URL，获取文件名
+        parsed_url = urlparse(file_url)
+        filename = os.path.basename(parsed_url.path)
+
+        # 构造本地源文件路径
+        source_path = os.path.join("uploads", *parsed_url.path.split("/")[2:])
+
+        if not os.path.exists(source_path):
+            logger.error(f"File not found: {source_path}")
             continue
 
-        filename = os.path.basename(file_path)
+        # 构造目标文件路径
         destination_path = os.path.join(
             UPLOAD_DIRECTORY, folder, str(grower_id), filename
         )
         os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
         try:
-            # 如果源文件和目标文件在同一文件系统，使用移动操作
-            # 否则，使用复制操作
+            # 如果目标文件已存在，先删除
             if os.path.exists(destination_path):
-                os.remove(destination_path)  # 如果目标文件已存在，先删除
-            shutil.move(file_path, destination_path)
-            saved_paths.append(destination_path)
+                os.remove(destination_path)
+
+            # 移动文件
+            shutil.copy(source_path, destination_path)
+
+            # 保存新的文件路径（这里保存的是相对路径，方便后续生成URL）
+            relative_path = os.path.join(folder, str(grower_id), filename)
+            saved_paths.append(relative_path)
         except shutil.Error as e:
-            logger.error(f"Error moving file {file_path}: {str(e)}")
+            logger.error(f"Error moving file {source_path}: {str(e)}")
             # 如果移动失败，尝试复制
             try:
-                shutil.copy2(file_path, destination_path)
-                saved_paths.append(destination_path)
+                shutil.copy2(source_path, destination_path)
+                relative_path = os.path.join(folder, str(grower_id), filename)
+                saved_paths.append(relative_path)
             except shutil.Error as e:
-                logger.error(f"Error copying file {file_path}: {str(e)}")
+                logger.error(f"Error copying file {source_path}: {str(e)}")
         except Exception as e:
-            logger.error(f"Unexpected error processing file {file_path}: {str(e)}")
+            logger.error(f"Unexpected error processing file {source_path}: {str(e)}")
 
     return saved_paths
 
