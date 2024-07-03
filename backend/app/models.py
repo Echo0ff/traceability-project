@@ -185,7 +185,7 @@ class CompanyGrowerCreate(GrowerBase):
     # type: str = Field("company", description="种植者类型，固定为'company'")
     name: Optional[str] = Field(None, description="联系人姓名")
     company_registration_number: str = Field(..., description="公司注册号")
-    business_license_photo: Optional[List[str]] = Field(
+    business_license_photos: Optional[List[str]] = Field(
         None, description="营业执照照片URL列表"
     )
     id_card_photo: Optional[List[str]] = Field(None, description="身份证照片URL列表")
@@ -205,7 +205,7 @@ class CompanyGrowerCreate(GrowerBase):
                 "company_name": "示例公司",
                 "name": "张三",
                 "company_registration_number": "91310000XXXXXXXX1X",
-                "business_license_photo": [
+                "business_license_photos": [
                     "http://example.com/license1.jpg",
                     "http://example.com/license2.jpg",
                 ],
@@ -296,7 +296,7 @@ class GrowerOut(SQLModel):
     email: Optional[str] = None
     crop_type_pic: Optional[List[str]] = None
     company_registration_number: Optional[str] = None
-    business_license_photo: Optional[List[str]] = Field(
+    business_license_photos: Optional[List[str]] = Field(
         None, description="营业执照照片URL列表"
     )
     land_ownership_certificate: Optional[List[str]] = Field(
@@ -336,7 +336,7 @@ class Middleman(MiddlemanBase, table=True):
     name: Optional[str] = None
     company_name: Optional[str] = None
     business_license_number: Optional[str] = None
-    business_license_photo: Optional[str] = None
+    business_license_photos: Optional[str] = None
     id_card_number: Optional[str] = None
     id_card_photo: Optional[str] = None
     transaction_contracts: List[str] = Field(default=[], sa_column=Column(JSON))
@@ -363,7 +363,7 @@ class MiddlemanCreate(MiddlemanBase):
     purchase_from_middleman_id: Optional[int] = None
     company_name: Optional[str] = None
     business_license_number: Optional[str] = None
-    business_license_photo: Optional[str] = None
+    business_license_photos: Optional[str] = None
     id_card_number: Optional[str] = None
     id_card_photo: Optional[str] = None
     transaction_contracts: List[str] = Field(default=[])
@@ -380,7 +380,7 @@ class MiddlemanUpdate(SQLModel):
     purchase_from_middleman_id: Optional[int] = None
     company_name: Optional[str] = None
     business_license_number: Optional[str] = None
-    business_license_photo: Optional[str] = None
+    business_license_photos: Optional[str] = None
     id_card_number: Optional[str] = None
     id_card_photo: Optional[str] = None
     transaction_contracts: Optional[List[str]] = None
@@ -393,7 +393,7 @@ class MiddlemanRead(MiddlemanBase):
     purchase_from_middleman_id: Optional[int] = None
     company_name: Optional[str] = None
     business_license_number: Optional[str] = None
-    business_license_photo: Optional[str] = None
+    business_license_photos: Optional[str] = None
     id_card_number: Optional[str] = None
     id_card_photo: Optional[str] = None
     transaction_contracts: List[str] = Field(default=[])

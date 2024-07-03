@@ -11,6 +11,7 @@ from app.core.redis_conf import redis_client
 from app.models import (
     Grower,
     CompanyGrowerCreate,
+    IndividualGrowerCreate,
     GrowerOut,
     GrowersOut,
     ResponseBase,
@@ -54,7 +55,7 @@ async def create_company_grower(
         "form_type": "company_grower",
         "grower_data": grower_data.model_dump(),
         "files": {
-            "business_license_photo": grower_data.business_license_photo,
+            "business_license_photos": grower_data.business_license_photos,
             "land_ownership_certificate": grower_data.land_ownership_certificate,
             "crop_type_pic": grower_data.crop_type_pic,
             "id_card_photo": grower_data.id_card_photo,
@@ -66,6 +67,46 @@ async def create_company_grower(
 
     return ResponseBase(
         message="Company grower created successfully. Please verify.",
+        code=200,
+        data={"temp_id": temp_id},
+    )
+
+
+@router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
+async def create_individual_grower(
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+    grower_data: IndividualGrowerCreate,
+) -> Any:
+    """
+    Create an individual grower
+    """
+    # 生成验证码
+    code = generate_verification_code()
+    # 存储验证码
+    store_verification_code(grower_data.phone_number, code)
+    # 异步发送验证码
+    background_tasks.add_task(send_verification_code, grower_data.phone_number, code)
+
+    # 生成临时ID
+    temp_id = str(uuid.uuid4())
+
+    # 准备存储到Redis的数据
+    redis_data = {
+        "form_type": "individual_grower",
+        "grower_data": grower_data.model_dump(),
+        "files": {
+            "id_card_photo": grower_data.id_card_photo,
+            "land_ownership_certificate": grower_data.land_ownership_certificate,
+            "crop_type_pic": grower_data.crop_type_pic,
+        },
+    }
+
+    # 将所有数据作为一个JSON字符串存储到Redis
+    redis_client.setex(f"pending_form:{temp_id}", 1800, json.dumps(redis_data))
+
+    return ResponseBase(
+        message="Individual grower created successfully. Please verify.",
         code=200,
         data={"temp_id": temp_id},
     )
@@ -111,8 +152,8 @@ async def create_company_grower(
 
 #     # 存储文件路径到Redis（不保存文件）
 #     redis_client.set(
-#         f"pending_form_files:{temp_id}:business_license_photo",
-#         business_license_photo.filename,
+#         f"pending_form_files:{temp_id}:business_license_photos",
+#         business_license_photos.filename,
 #     )
 #     if land_ownership_certificate:
 #         redis_client.set(
@@ -133,76 +174,76 @@ async def create_company_grower(
 #     )
 
 
-@router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
-def create_individual_grower(
-    background_tasks: BackgroundTasks,
-    session: SessionDep,
-    name: str = Form(..., description="姓名"),
-    phone_number: str = Form(..., description="联系电话"),
-    location_coordinates: Optional[str] = Form(None, description="地块坐标"),
-    crop_type: str = Form(..., description="种植品种"),
-    crop_yield: Optional[float] = Form(None, description="种植产量"),
-    id_card_number: str = Form(..., description="身份证号", nullable=False),
-    id_card_photo: UploadFile = File(..., description="身份证照片"),
-    land_ownership_certificate: Optional[UploadFile] = File(
-        None, description="土地所有权证书"
-    ),
-    crop_type_pic: Optional[List[UploadFile]] = File(None, description="种植品种图片"),
-) -> Any:
-    """
-    Create an individual grower
-    """
-    # 生成验证码
-    code = generate_verification_code()
-    # 存储验证码
-    store_verification_code(phone_number, code)
-    # 异步发送验证码
-    background_tasks.add_task(send_verification_code, phone_number, code)
+# @router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
+# def create_individual_grower(
+#     background_tasks: BackgroundTasks,
+#     session: SessionDep,
+#     name: str = Form(..., description="姓名"),
+#     phone_number: str = Form(..., description="联系电话"),
+#     location_coordinates: Optional[str] = Form(None, description="地块坐标"),
+#     crop_type: str = Form(..., description="种植品种"),
+#     crop_yield: Optional[float] = Form(None, description="种植产量"),
+#     id_card_number: str = Form(..., description="身份证号", nullable=False),
+#     id_card_photo: UploadFile = File(..., description="身份证照片"),
+#     land_ownership_certificate: Optional[UploadFile] = File(
+#         None, description="土地所有权证书"
+#     ),
+#     crop_type_pic: Optional[List[UploadFile]] = File(None, description="种植品种图片"),
+# ) -> Any:
+#     """
+#     Create an individual grower
+#     """
+#     # 生成验证码
+#     code = generate_verification_code()
+#     # 存储验证码
+#     store_verification_code(phone_number, code)
+#     # 异步发送验证码
+#     background_tasks.add_task(send_verification_code, phone_number, code)
 
-    grower_data = Grower(
-        name=name,
-        phone_number=phone_number,
-        location_coordinates=location_coordinates,
-        crop_type=crop_type,
-        crop_yield=crop_yield,
-        id_card_number=id_card_number,
-        type="individual",
-    )
+#     grower_data = Grower(
+#         name=name,
+#         phone_number=phone_number,
+#         location_coordinates=location_coordinates,
+#         crop_type=crop_type,
+#         crop_yield=crop_yield,
+#         id_card_number=id_card_number,
+#         type="individual",
+#     )
 
-    # 生成临时ID
-    temp_id = str(uuid.uuid4())
+#     # 生成临时ID
+#     temp_id = str(uuid.uuid4())
 
-    # 存储表单类型
-    form_type = "individual_grower"
-    redis_client.setex(f"pending_form:{temp_id}:type", 1800, form_type)
+#     # 存储表单类型
+#     form_type = "individual_grower"
+#     redis_client.setex(f"pending_form:{temp_id}:type", 1800, form_type)
 
-    # 将种植主数据暂时存储在Redis中
-    redis_client.setex(
-        f"pending_form:{temp_id}", 1800, json.dumps(grower_data.model_dump())
-    )
+#     # 将种植主数据暂时存储在Redis中
+#     redis_client.setex(
+#         f"pending_form:{temp_id}", 1800, json.dumps(grower_data.model_dump())
+#     )
 
-    # 存储文件路径到Redis（不保存文件）
-    redis_client.set(
-        f"pending_form_files:{temp_id}:id_card_photo",
-        id_card_photo.filename,
-    )
-    if land_ownership_certificate:
-        redis_client.set(
-            f"pending_form_files:{temp_id}:land_ownership_certificate",
-            land_ownership_certificate.filename,
-        )
-    if crop_type_pic:
-        for pic in crop_type_pic:
-            redis_client.rpush(
-                f"pending_form_files:{temp_id}:crop_type_pic",
-                pic.filename,
-            )
+#     # 存储文件路径到Redis（不保存文件）
+#     redis_client.set(
+#         f"pending_form_files:{temp_id}:id_card_photo",
+#         id_card_photo.filename,
+#     )
+#     if land_ownership_certificate:
+#         redis_client.set(
+#             f"pending_form_files:{temp_id}:land_ownership_certificate",
+#             land_ownership_certificate.filename,
+#         )
+#     if crop_type_pic:
+#         for pic in crop_type_pic:
+#             redis_client.rpush(
+#                 f"pending_form_files:{temp_id}:crop_type_pic",
+#                 pic.filename,
+#             )
 
-    return ResponseBase(
-        message="Individual grower created successfully. Please verify.",
-        code=200,
-        data={"temp_id": temp_id},
-    )
+#     return ResponseBase(
+#         message="Individual grower created successfully. Please verify.",
+#         code=200,
+#         data={"temp_id": temp_id},
+#     )
 
 
 # @router.post("/individual", response_model=ResponseBase, summary="创建个人种植主")
@@ -290,7 +331,7 @@ def create_individual_grower(
 #     company_registration_number: str = Form(
 #         ..., description="营业执照编号", nullable=False
 #     ),
-#     business_license_photo: UploadFile = File(..., description="营业执照照片"),
+#     business_license_photos: UploadFile = File(..., description="营业执照照片"),
 #     land_ownership_certificate: Optional[UploadFile] = File(
 #         None, description="土地所有权证书"
 #     ),
@@ -307,7 +348,7 @@ def create_individual_grower(
 #         "crop_type": crop_type,
 #         "crop_yield": crop_yield,
 #         "company_registration_number": company_registration_number,
-#         "business_license_photo": "placeholder",
+#         "business_license_photos": "placeholder",
 #         "land_ownership_certificate": "placeholder",
 #         "crop_type_pic": [],
 #         "type": "company",
@@ -320,8 +361,8 @@ def create_individual_grower(
 #     session.refresh(grower)
 
 #     # Now use the actual grower.id to save files
-#     business_license_photo_path = save_file(
-#         business_license_photo, UPLOAD_DIRECTORY, "business_license", str(grower.id)
+#     business_license_photos_path = save_file(
+#         business_license_photos, UPLOAD_DIRECTORY, "business_license", str(grower.id)
 #     )
 #     land_ownership_certificate_path = save_file(
 #         land_ownership_certificate, UPLOAD_DIRECTORY, "land_ownership", str(grower.id)
@@ -335,7 +376,7 @@ def create_individual_grower(
 #             crop_type_pic_paths.append(pic_path)
 
 #     # Update the grower record with actual file paths
-#     grower.business_license_photo = business_license_photo_path
+#     grower.business_license_photos = business_license_photos_path
 #     grower.land_ownership_certificate = land_ownership_certificate_path
 #     grower.crop_type_pic = crop_type_pic_paths
 

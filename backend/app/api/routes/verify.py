@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from app.api.deps import SessionDep
 from app.models import Middleman, Grower, ResponseBase, CompanyGrowerCreate
 from app.core.redis_conf import redis_client
-from app.core.config import UPLOAD_DIRECTORY, QR_CODE_DIRECTORY
+from app.core.config import UPLOAD_DIRECTORY, QR_CODE_DIRECTORY, settings
 from app.utils import generate_qr_code, verify_code
 
 router = APIRouter()
@@ -87,7 +87,7 @@ async def create_company_grower(
 
     # 处理文件
     business_license_photos = await save_files(
-        files.get("business_license_photo", []), "business_license", grower.id
+        files.get("business_license_photos", []), "business_license", grower.id
     )
     land_ownership_certificates = await save_files(
         files.get("land_ownership_certificate", []), "land_ownership", grower.id
@@ -98,15 +98,16 @@ async def create_company_grower(
     id_card_photo = await save_files(
         files.get("id_card_photo", []), "idcard", grower.id
     )
-
-    grower.business_license_photos = business_license_photos
-    grower.land_ownership_certificate = land_ownership_certificates
-    grower.crop_type_pic = crop_type_pics
-    grower.id_card_photo = id_card_photo
+    prefix = f"https://{settings.DOMAIN}/"
+    grower.business_license_photos = prefix + business_license_photos
+    grower.land_ownership_certificate = prefix + land_ownership_certificates
+    grower.crop_type_pic = prefix + crop_type_pics
+    grower.id_card_photo = prefix + id_card_photo
 
     # 生成二维码
     qr_code_filename = generate_qr_code(str(grower.id), QR_CODE_DIRECTORY)
-    qr_code_access_path = f"upload/qrcode/{qr_code_filename}".replace("/", ",,")
+
+    qr_code_access_path = os.path.join(UPLOAD_DIRECTORY, "qrcode", qr_code_filename)
     grower.qr_code = qr_code_access_path
 
     session.commit()
@@ -204,7 +205,7 @@ async def save_files(file_urls: List[str], folder: str, grower_id: int) -> List[
 #     # 清理Redis中的临时数据
 #     redis_client.delete(f"pending_form:{temp_id}")
 #     redis_client.delete(f"pending_form:{temp_id}:type")
-#     redis_client.delete(f"pending_form_files:{temp_id}:business_license_photo")
+#     redis_client.delete(f"pending_form_files:{temp_id}:business_license_photos")
 #     redis_client.delete(f"pending_form_files:{temp_id}:transaction_contracts")
 
 #     return ResponseBase(
@@ -223,10 +224,10 @@ async def save_files(file_urls: List[str], folder: str, grower_id: int) -> List[
 #     session.flush()  # 这会给 grower 分配一个 ID，但不会提交事务
 
 #     # 获取文件名
-#     business_license_photo_filename = redis_client.get(
-#         f"pending_form_files:{temp_id}:business_license_photo"
+#     business_license_photos_filename = redis_client.get(
+#         f"pending_form_files:{temp_id}:business_license_photos"
 #     )
-#     print(f"business_license_photo_filename:{business_license_photo_filename}")
+#     print(f"business_license_photos_filename:{business_license_photos_filename}")
 
 #     land_ownership_certificate_filename = redis_client.get(
 #         f"pending_form_files:{temp_id}:land_ownership_certificate"
@@ -238,12 +239,12 @@ async def save_files(file_urls: List[str], folder: str, grower_id: int) -> List[
 #     print(crop_type_pic_filenames)
 
 #     # 更新文件路径
-#     if business_license_photo_filename:
-#         grower.business_license_photo = os.path.join(
+#     if business_license_photos_filename:
+#         grower.business_license_photos = os.path.join(
 #             UPLOAD_DIRECTORY,
 #             "business_license",
 #             str(grower.id),
-#             business_license_photo_filename,
+#             business_license_photos_filename,
 #         )
 
 #     if land_ownership_certificate_filename:
@@ -343,20 +344,20 @@ def create_company_middleman(session: SessionDep, data: dict, temp_id: str):
     session.refresh(middleman)
 
     # 获取文件名
-    business_license_photo_filename = redis_client.get(
-        f"pending_form_files:{temp_id}:business_license_photo"
+    business_license_photos_filename = redis_client.get(
+        f"pending_form_files:{temp_id}:business_license_photos"
     )
     transaction_contract_filenames = redis_client.lrange(
         f"pending_form_files:{temp_id}:transaction_contracts", 0, -1
     )
 
     # 更新文件路径
-    if business_license_photo_filename:
-        middleman.business_license_photo = os.path.join(
+    if business_license_photos_filename:
+        middleman.business_license_photos = os.path.join(
             UPLOAD_DIRECTORY,
             "business_license",
             str(middleman.id),
-            business_license_photo_filename.decode(),
+            business_license_photos_filename.decode(),
         )
 
     transaction_contract_paths = []
