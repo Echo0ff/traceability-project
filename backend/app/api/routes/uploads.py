@@ -23,7 +23,7 @@ def upload_single_file(file: UploadFile = File(...), field: str = Form(...)):
     with open(file_location, "wb") as f:
         f.write(file.file.read())
 
-    file_url = os.path.join("https", settings.DOMAIN, temp_dir, file.filename)
+    file_url = os.path.join("https:/", settings.DOMAIN, temp_dir, file.filename)
     data = {
         "file_name": file.filename,
         "file_url": file_url,
