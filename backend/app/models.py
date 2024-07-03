@@ -286,7 +286,7 @@ class GrowerOut(SQLModel):
     id: int = Field(...)
     type: str = Field(...)  # "individual" 或 "corporate"
     crop_type: str = Field(...)
-    crop_yield: Optional[float] = None
+    crop_yield: Optional[str] = None
     location_coordinates: Optional[str] = None
     qr_code: str = Field(...)
     name: Optional[str] = None
@@ -295,6 +295,14 @@ class GrowerOut(SQLModel):
     phone_number: Optional[str] = None
     email: Optional[str] = None
     crop_type_pic: Optional[List[str]] = None
+    company_registration_number: Optional[str] = None
+    business_license_photo: Optional[List[str]] = Field(
+        None, description="营业执照照片URL列表"
+    )
+    land_ownership_certificate: Optional[List[str]] = Field(
+        None, description="土地所有权证书URL列表"
+    )
+    crop_type_pic: Optional[List[str]] = Field(None, description="种植品种图片URL列表")
 
 
 class GrowersOut(SQLModel):
