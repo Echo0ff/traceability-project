@@ -33,7 +33,7 @@ def generate_verification_code() -> str:
     verify_str = "".join([str(random.randint(0, 9)) for _ in range(6)])
     logger.info(f"Generating verification code is {verify_str}")
     # return verify_str
-    return "999999"
+    return "9999"
 
 
 def send_verification_code(phone_number: str, code: str) -> Optional[str]:
