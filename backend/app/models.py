@@ -186,13 +186,13 @@ class CompanyGrowerCreate(GrowerBase):
     name: Optional[str] = Field(None, description="联系人姓名")
     company_registration_number: str = Field(..., description="公司注册号")
     business_license_photos: Optional[List[str]] = Field(
-        None, description="营业执照照片URL列表"
+        [], description="营业执照照片URL列表"
     )
-    id_card_photo: Optional[List[str]] = Field(None, description="身份证照片URL列表")
+    id_card_photo: Optional[List[str]] = Field([], description="身份证照片URL列表")
     land_ownership_certificate: Optional[List[str]] = Field(
-        None, description="土地所有权证书URL列表"
+        [], description="土地所有权证书URL列表"
     )
-    crop_type_pic: Optional[List[str]] = Field(None, description="种植品种图片URL列表")
+    crop_type_pic: Optional[List[str]] = Field([], description="种植品种图片URL列表")
 
     class Config:
         json_schema_extra = {

@@ -98,14 +98,24 @@ async def create_company_grower(
     id_card_photo = await save_files(
         files.get("id_card_photo", []), "idcard", grower.id
     )
-    prefix = f"https://{settings.DOMAIN}/"
-    grower.business_license_photos = prefix + business_license_photos
-    grower.land_ownership_certificate = prefix + land_ownership_certificates
-    grower.crop_type_pic = prefix + crop_type_pics
-    grower.id_card_photo = prefix + id_card_photo
+    prefix = f"https://{settings.DOMAIN}/{UPLOAD_DIRECTORY}"
+    if business_license_photos:
+        grower.business_license_photos = [
+            prefix + photo for photo in business_license_photos
+        ]
+    if land_ownership_certificates:
+        grower.land_ownership_certificate = [
+            prefix + cert for cert in land_ownership_certificates
+        ]
+    if crop_type_pics:
+        grower.crop_type_pic = [prefix + pic for pic in crop_type_pics]
+    if id_card_photo:
+        grower.id_card_photo = [prefix + id_card for id_card in id_card_photo]
 
     # 生成二维码
-    qr_code_filename = generate_qr_code(str(grower.id), QR_CODE_DIRECTORY)
+    qr_code_filename = generate_qr_code(
+        grower.id, f"/grower/{str(grower.id)}", QR_CODE_DIRECTORY
+    )
 
     qr_code_access_path = os.path.join(UPLOAD_DIRECTORY, "qrcode", qr_code_filename)
     grower.qr_code = qr_code_access_path

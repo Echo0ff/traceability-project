@@ -80,7 +80,7 @@ def model_to_dict(obj, output_model):
     return TypeAdapter(output_model).validate_python(obj)
 
 
-def generate_qr_code(data: str, directory: str) -> str:
+def generate_qr_code(id: int, data: str, directory: str) -> str:
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -92,7 +92,7 @@ def generate_qr_code(data: str, directory: str) -> str:
     img = qr.make_image(fill="black", back_color="white")
     if not os.path.exists(directory):
         os.makedirs(directory)
-    qr_code_filename = f"id_{data}_qrcode.png"
+    qr_code_filename = f"id_{str(id)}_qrcode.png"
     qr_code_path = os.path.join(directory, qr_code_filename)
     with open(qr_code_path, "wb") as file:
         img.save(file)
