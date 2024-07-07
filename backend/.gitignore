@@ -7,3 +7,6 @@ htmlcov
 .cache
 .venv
 uploads
+grower_qrcodes
+transaction_qrcodes
+qrcodes

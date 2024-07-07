@@ -1,28 +1,34 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
+    Consumer,
+    ConsumerCreate,
+    Grower,
+    GrowerCreate,
+    GrowerRead,
     Item,
     ItemCreate,
-    User,
-    UserCreate,
-    UserUpdate,
-    Grower,
-    CorporateGrowerCreate,
-    IndividualGrowerCreate,
     Middleman,
     MiddlemanCreate,
     MiddlemanUpdate,
-    Consumer,
-    ConsumerCreate,
-    QRCode,
-    QRCodeCreate,
-    Authentication,
-    AuthenticationCreate,
-    AuthenticationUpdate,
+    Plot,
+    PlotCreate,
+    PlotRead,
+    Product,
+    ProductCreate,
+    ProductRead,
+    QRCodeInfo,
+    Transaction,
+    TransactionCreate,
+    TransactionRead,
+    User,
+    UserCreate,
+    UserUpdate,
 )
+from app.utils import generate_qr_code
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -77,7 +83,7 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: int) -> Item
 
 async def create_grower(
     db: Session,
-    grower: Union[CorporateGrowerCreate, IndividualGrowerCreate],
+    grower: GrowerCreate,
     grower_type: str,
 ):
     db_grower = Grower(type=grower_type, **grower.dict())
@@ -159,65 +165,141 @@ def get_consumer_by_id(*, session: Session, consumer_id: int) -> Consumer | None
     return session_consumer
 
 
-### QR Code CRUD Operations
-
-
-def create_qr_code(*, session: Session, qr_code_create: QRCodeCreate) -> QRCode:
-    db_obj = QRCode.model_validate(qr_code_create)
-    session.add(db_obj)
+# Grower CRUD operations
+def create_grower(*, session: Session, grower_in: GrowerCreate) -> Grower:
+    db_grower = Grower.model_validate(grower_in)
+    session.add(db_grower)
     session.commit()
-    session.refresh(db_obj)
-    return db_obj
+    session.refresh(db_grower)
+    return db_grower
 
 
-def get_qr_code_by_data(*, session: Session, data: str) -> QRCode | None:
-    statement = select(QRCode).where(QRCode.data == data)
-    session_qr_code = session.exec(statement).first()
-    return session_qr_code
+def get_grower(*, session: Session, grower_id: int) -> Optional[Grower]:
+    return session.get(Grower, grower_id)
 
 
-### Authentication CRUD Operations
+def get_grower_by_name(*, session: Session, name: str) -> Optional[Grower]:
+    statement = select(Grower).where(Grower.name == name)
+    return session.exec(statement).first()
 
 
-def create_authentication(
-    *, session: Session, auth_create: AuthenticationCreate
-) -> Authentication:
-    db_obj = Authentication.model_validate(auth_create)
-    session.add(db_obj)
+def update_grower(
+    *, session: Session, db_grower: Grower, grower_in: GrowerCreate
+) -> Grower:
+    grower_data = grower_in.model_dump(exclude_unset=True)
+    db_grower.sqlmodel_update(grower_data)
+    session.add(db_grower)
     session.commit()
-    session.refresh(db_obj)
-    return db_obj
+    session.refresh(db_grower)
+    return db_grower
 
 
-def update_authentication(
-    *, session: Session, db_auth: Authentication, auth_in: AuthenticationUpdate
-) -> Any:
-    auth_data = auth_in.model_dump(exclude_unset=True)
-    db_auth.sqlmodel_update(auth_data)
-    session.add(db_auth)
+# Plot CRUD operations
+def create_plot(*, session: Session, plot_in: PlotCreate) -> Plot:
+    db_plot = Plot.model_validate(plot_in)
+    session.add(db_plot)
     session.commit()
-    session.refresh(db_auth)
-    return db_auth
+    session.refresh(db_plot)
+    return db_plot
 
 
-def get_authentication_by_phone_number(
-    *, session: Session, phone_number: str
-) -> Authentication | None:
-    statement = select(Authentication).where(
-        Authentication.phone_number == phone_number
+def get_plot(*, session: Session, plot_id: int) -> Optional[Plot]:
+    return session.get(Plot, plot_id)
+
+
+# Product CRUD operations
+def create_product(*, session: Session, product_in: ProductCreate) -> Product:
+    db_product = Product.model_validate(
+        product_in, update={"remaining_yield": product_in.total_yield}
     )
-    session_auth = session.exec(statement).first()
-    return session_auth
+    session.add(db_product)
+    session.commit()
+    session.refresh(db_product)
+    return db_product
 
 
-def authenticate(
-    *, session: Session, phone_number: str, verification_code: str
-) -> Authentication | None:
-    db_auth = get_authentication_by_phone_number(
-        session=session, phone_number=phone_number
+def get_product(*, session: Session, product_id: int) -> Optional[Product]:
+    return session.get(Product, product_id)
+
+
+def update_product_yield(
+    *, session: Session, db_product: Product, quantity: float
+) -> Product:
+    db_product.remaining_yield -= quantity
+    session.add(db_product)
+    session.commit()
+    session.refresh(db_product)
+    return db_product
+
+
+# Middleman CRUD operations
+def create_middleman(*, session: Session, middleman_in: MiddlemanCreate) -> Middleman:
+    db_middleman = Middleman.model_validate(middleman_in)
+    session.add(db_middleman)
+    session.commit()
+    session.refresh(db_middleman)
+    return db_middleman
+
+
+def get_middleman(*, session: Session, middleman_id: int) -> Optional[Middleman]:
+    return session.get(Middleman, middleman_id)
+
+
+# Transaction CRUD operations
+def create_transaction(
+    *, session: Session, transaction_in: TransactionCreate
+) -> Transaction:
+    db_transaction = Transaction.model_validate(transaction_in)
+
+    # Generate QR code (you'll need to implement this function)
+    qr_code = generate_qr_code(db_transaction)
+    db_transaction.qr_code = qr_code
+
+    session.add(db_transaction)
+
+    # Update product remaining yield
+    product = get_product(session=session, product_id=transaction_in.product_id)
+    if product:
+        update_product_yield(
+            session=session, db_product=product, quantity=transaction_in.quantity
+        )
+
+    session.commit()
+    session.refresh(db_transaction)
+    return db_transaction
+
+
+def get_transaction(*, session: Session, transaction_id: int) -> Optional[Transaction]:
+    return session.get(Transaction, transaction_id)
+
+
+def get_transaction_by_qr_code(
+    *, session: Session, qr_code: str
+) -> Optional[Transaction]:
+    statement = select(Transaction).where(Transaction.qr_code == qr_code)
+    return session.exec(statement).first()
+
+
+# QR Code Info
+def get_qr_code_info(*, session: Session, qr_code: str) -> Optional[QRCodeInfo]:
+    transaction = get_transaction_by_qr_code(session=session, qr_code=qr_code)
+    if not transaction:
+        return None
+
+    product = transaction.product
+    plot = product.plot
+    grower = plot.grower
+
+    # Get all related transactions
+    related_transactions = []
+    current_transaction = transaction
+    while current_transaction:
+        related_transactions.append(current_transaction)
+        current_transaction = current_transaction.parent_transaction
+
+    return QRCodeInfo(
+        grower=GrowerRead.model_validate(grower),
+        plot=PlotRead.model_validate(plot),
+        product=ProductRead.model_validate(product),
+        transactions=[TransactionRead.model_validate(t) for t in related_transactions],
     )
-    if not db_auth:
-        return None
-    if db_auth.verification_code != verification_code:
-        return None
-    return db_auth

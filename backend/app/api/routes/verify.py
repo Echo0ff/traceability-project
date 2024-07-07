@@ -1,17 +1,17 @@
-import os
-import shutil
 import json
 import logging
+import os
+import shutil
 from typing import List
-from pydantic import BaseModel
-from fastapi import APIRouter, Form, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
 from urllib.parse import urlparse
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
+
 from app.api.deps import SessionDep
-from app.models import Middleman, Grower, ResponseBase, CompanyGrowerCreate
+from app.core.config import QR_CODE_DIRECTORY, UPLOAD_DIRECTORY, settings
 from app.core.redis_conf import redis_client
-from app.core.config import UPLOAD_DIRECTORY, QR_CODE_DIRECTORY, settings
+from app.models import Grower, GrowerCreate, Middleman, ResponseBase
 from app.utils import generate_qr_code, verify_code
 
 router = APIRouter()
@@ -76,7 +76,7 @@ async def verify_form(
 async def create_company_grower(
     session: SessionDep, data: dict, files: dict, temp_id: str
 ):
-    grower_data = CompanyGrowerCreate(**data)
+    grower_data = GrowerCreate(**data)
 
     # 生成临时的 QR 码值
     temp_qr_code = ""

@@ -1,30 +1,27 @@
-import logging
 import json
+import logging
+import os
+import random
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
-from pydantic import TypeAdapter
 
 import emails  # type: ignore
-from jinja2 import Template
-from jose import JWTError, jwt
-
-from app.core.config import settings
-
-import os
-import uuid
-from fastapi import UploadFile
 import qrcode
-
-import random
-from app.core.redis_conf import redis_client
-
 from aliyunsdkcore.client import AcsClient
 from aliyunsdkcore.request import CommonRequest
+from fastapi import UploadFile
+from jinja2 import Template
+from jose import JWTError, jwt
+from pydantic import TypeAdapter
 
+from app.core.config import settings
+from app.core.redis_conf import redis_client
 
-client = AcsClient(settings.ACCESS_KEY_ID, settings.ACCESS_KEY_SECRET, settings.REGION)
+client = AcsClient(settings.ACCESS_KEY_ID, settings.ACCESS_KEY_SECRET,
+                   settings.REGION)
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -64,7 +61,9 @@ def send_verification_code(phone_number: str, code: str) -> Optional[str]:
         return str(e)
 
 
-def store_verification_code(phone_number: str, code: str, expire_time: int = 300):
+def store_verification_code(phone_number: str,
+                            code: str,
+                            expire_time: int = 300):
     redis_client.setex(f"verification:{phone_number}", expire_time, code)
 
 
@@ -80,28 +79,65 @@ def model_to_dict(obj, output_model):
     return TypeAdapter(output_model).validate_python(obj)
 
 
-def generate_qr_code(id: int, data: str, directory: str) -> str:
+def generate_qr_code(data, prefix="qrcode", directory="qrcodes"):
+    """
+    Generate a QR code and save it as an image file.
+
+    :param data: The data to be encoded in the QR code.
+    :param prefix: Prefix for the filename (default: "qrcode").
+    :param directory: Directory to save the QR code image (default: "qrcodes").
+    :return: The filename of the generated QR code image.
+    """
+    # Ensure the directory exists
+    os.makedirs(directory, exist_ok=True)
+
+    # Generate a unique filename
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{prefix}_{timestamp}.png"
+    filepath = os.path.join(directory, filename)
+
+    # Create QR code instance
     qr = qrcode.QRCode(
-        version=1,
+        version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10,
         border=4,
     )
-    qr.add_data(data)
+
+    # Add data
+    qr.add_data(str(data))
     qr.make(fit=True)
-    img = qr.make_image(fill="black", back_color="white")
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    qr_code_filename = f"id_{str(id)}_qrcode.png"
-    qr_code_path = os.path.join(directory, qr_code_filename)
-    with open(qr_code_path, "wb") as file:
-        img.save(file)
-    return qr_code_filename  # 只返回文件名，而不是完整路径
+
+    # Create an image from the QR Code instance
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Save the image
+    img.save(filepath)
+
+    return filename
 
 
-def save_file(
-    file: UploadFile, directory: str, file_type: str, id: str
-) -> Optional[str]:
+# def generate_qr_code(id: int, data: str, directory: str) -> str:
+#     qr = qrcode.QRCode(
+#         version=1,
+#         error_correction=qrcode.constants.ERROR_CORRECT_L,
+#         box_size=10,
+#         border=4,
+#     )
+#     qr.add_data(data)
+#     qr.make(fit=True)
+#     img = qr.make_image(fill="black", back_color="white")
+#     if not os.path.exists(directory):
+#         os.makedirs(directory)
+#     qr_code_filename = f"id_{str(id)}_qrcode.png"
+#     qr_code_path = os.path.join(directory, qr_code_filename)
+#     with open(qr_code_path, "wb") as file:
+#         img.save(file)
+#     return qr_code_filename  # 只返回文件名，而不是完整路径
+
+
+def save_file(file: UploadFile, directory: str, file_type: str,
+              id: str) -> Optional[str]:
     """
     Save the uploaded file to the specified directory with a unique filename
     that includes the file type, id, and a unique identifier.
@@ -135,10 +171,10 @@ class EmailData:
     subject: str
 
 
-def render_email_template(*, template_name: str, context: dict[str, Any]) -> str:
-    template_str = (
-        Path(__file__).parent / "email-templates" / "build" / template_name
-    ).read_text()
+def render_email_template(*, template_name: str, context: dict[str,
+                                                               Any]) -> str:
+    template_str = (Path(__file__).parent / "email-templates" / "build" /
+                    template_name).read_text()
     html_content = Template(template_str).render(context)
     return html_content
 
@@ -173,12 +209,16 @@ def generate_test_email(email_to: str) -> EmailData:
     subject = f"{project_name} - Test email"
     html_content = render_email_template(
         template_name="test_email.html",
-        context={"project_name": settings.PROJECT_NAME, "email": email_to},
+        context={
+            "project_name": settings.PROJECT_NAME,
+            "email": email_to
+        },
     )
     return EmailData(html_content=html_content, subject=subject)
 
 
-def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData:
+def generate_reset_password_email(email_to: str, email: str,
+                                  token: str) -> EmailData:
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Password recovery for user {email}"
     link = f"{settings.server_host}/reset-password?token={token}"
@@ -195,9 +235,8 @@ def generate_reset_password_email(email_to: str, email: str, token: str) -> Emai
     return EmailData(html_content=html_content, subject=subject)
 
 
-def generate_new_account_email(
-    email_to: str, username: str, password: str
-) -> EmailData:
+def generate_new_account_email(email_to: str, username: str,
+                               password: str) -> EmailData:
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - New account for user {username}"
     html_content = render_email_template(
@@ -219,7 +258,11 @@ def generate_password_reset_token(email: str) -> str:
     expires = now + delta
     exp = expires.timestamp()
     encoded_jwt = jwt.encode(
-        {"exp": exp, "nbf": now, "sub": email},
+        {
+            "exp": exp,
+            "nbf": now,
+            "sub": email
+        },
         settings.SECRET_KEY,
         algorithm="HS256",
     )
@@ -228,7 +271,9 @@ def generate_password_reset_token(email: str) -> str:
 
 def verify_password_reset_token(token: str) -> str | None:
     try:
-        decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        decoded_token = jwt.decode(token,
+                                   settings.SECRET_KEY,
+                                   algorithms=["HS256"])
         return str(decoded_token["sub"])
     except JWTError:
         return None

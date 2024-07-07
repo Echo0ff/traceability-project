@@ -1,32 +1,24 @@
-import os
 import json
 import uuid
-from typing import Any, Optional, List
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Form, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks
 from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import SessionDep
 from app.core.redis_conf import redis_client
-from app.models import (
+from app.models import (  # IndividualGrowerCreate,; GrowerOut,; GrowersOut,
     Grower,
-    CompanyGrowerCreate,
-    IndividualGrowerCreate,
-    GrowerOut,
-    GrowersOut,
+    GrowerCreate,
+    GrowerRead,
     ResponseBase,
 )
-
-from app.core.config import UPLOAD_DIRECTORY, QR_CODE_DIRECTORY
 from app.utils import (
-    save_file,
-    generate_qr_code,
-    model_to_dict,
     generate_verification_code,
+    model_to_dict,
     send_verification_code,
     store_verification_code,
 )
-
 
 router = APIRouter()
 
@@ -35,7 +27,7 @@ router = APIRouter()
 async def create_company_grower(
     background_tasks: BackgroundTasks,
     session: SessionDep,
-    grower_data: CompanyGrowerCreate,
+    grower_data: GrowerCreate,
 ) -> Any:
     """
     Create a company grower
@@ -76,7 +68,7 @@ async def create_company_grower(
 async def create_individual_grower(
     background_tasks: BackgroundTasks,
     session: SessionDep,
-    grower_data: IndividualGrowerCreate,
+    grower_data: GrowerCreate,
 ) -> Any:
     """
     Create an individual grower
@@ -398,7 +390,7 @@ async def create_individual_grower(
 #     )
 
 
-@router.get("/", response_model=ResponseBase[GrowersOut])
+@router.get("/", response_model=ResponseBase[GrowerRead])
 def read_growers(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     """
     Retrieve all growers.
@@ -411,11 +403,11 @@ def read_growers(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     return ResponseBase(
         message="Growers retrieved successfully",
         code=200,
-        data=GrowersOut(data=growers, count=count),
+        data=GrowerRead(data=growers, count=count),
     )
 
 
-@router.get("/{id}", response_model=ResponseBase[GrowerOut])
+@router.get("/{id}", response_model=ResponseBase[GrowerRead])
 def read_grower(session: SessionDep, id: int) -> Any:
     """
     Get grower by ID.
@@ -424,7 +416,7 @@ def read_grower(session: SessionDep, id: int) -> Any:
     if not grower:
         return ResponseBase(message="Grower not found", code=404)
 
-    grower_out = model_to_dict(grower, GrowerOut)
+    grower_out = model_to_dict(grower, GrowerRead)
 
     return ResponseBase(
         message="Grower retrieved successfully",

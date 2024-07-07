@@ -1,16 +1,9 @@
 import os
-import json
-import uuid
-from typing import Any, Optional, List
 
-from fastapi import APIRouter, HTTPException, Form, UploadFile, File, BackgroundTasks
-from sqlmodel import func, select
+from fastapi import APIRouter, File, Form, UploadFile
+
+from app.core.config import UPLOAD_DIRECTORY, settings
 from app.models import ResponseBase
-
-from app.api.deps import CurrentUser, SessionDep
-from app.core.redis_conf import redis_client
-from app.core.config import settings, UPLOAD_DIRECTORY, QR_CODE_DIRECTORY
-
 
 router = APIRouter()
 

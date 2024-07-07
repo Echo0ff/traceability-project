@@ -28,6 +28,9 @@ pydantic-settings = "^2.2.1"
 sentry-sdk = {extras = ["fastapi"], version = "^1.40.6"}
 jose = "^1.0.0"
 qrcode = "^7.4.2"
+autoflake = "^2.3.1"
+black = "^24.4.2"
+isort = "^5.13.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
