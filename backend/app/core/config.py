@@ -29,9 +29,9 @@ def parse_cors(v: Any) -> list[str] | str:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", env_ignore_empty=True, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env",
+                                      env_ignore_empty=True,
+                                      extra="ignore")
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
@@ -47,9 +47,8 @@ class Settings(BaseSettings):
             return f"http://{self.DOMAIN}"
         return f"https://{self.DOMAIN}"
 
-    BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_cors)] = (
-        []
-    )
+    BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str,
+                                    BeforeValidator(parse_cors)] = ([])
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
@@ -105,8 +104,7 @@ class Settings(BaseSettings):
         if value == "changethis":
             message = (
                 f'The value of {var_name} is "changethis", '
-                "for security, please change it, at least for deployments."
-            )
+                "for security, please change it, at least for deployments.")
             if self.ENVIRONMENT == "local":
                 warnings.warn(message, stacklevel=1)
             else:
@@ -116,9 +114,8 @@ class Settings(BaseSettings):
     def _enforce_non_default_secrets(self) -> Self:
         self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
         self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
-        self._check_default_secret(
-            "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
-        )
+        self._check_default_secret("FIRST_SUPERUSER_PASSWORD",
+                                   self.FIRST_SUPERUSER_PASSWORD)
 
         return self
 

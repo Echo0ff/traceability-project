@@ -204,11 +204,6 @@ class TransactionCreate(TransactionBase):
     parent_transaction_id: Optional[int] = Field(None, description="父交易ID")
 
 
-class GrowerRead(GrowerBase):
-    id: int = Field(..., description="种植者ID")
-    qr_code: str = Field(..., description="二维码")
-
-
 class PlotRead(PlotCreate):
     id: int = Field(..., description="地块ID")
 
@@ -216,6 +211,13 @@ class PlotRead(PlotCreate):
 class ProductRead(ProductCreate):
     id: int = Field(..., description="产品ID")
     remaining_yield: float = Field(..., description="剩余产量")
+
+
+class GrowerRead(GrowerBase):
+    id: int = Field(..., description="种植者ID")
+    qr_code: str = Field(..., description="二维码")
+    plots: List[PlotRead] = Field(default=[], description="地块信息列表")
+    products: List[ProductRead] = Field(default=[], description="产品信息列表")
 
 
 class MiddlemanRead(MiddlemanCreate):

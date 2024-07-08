@@ -113,7 +113,7 @@ def generate_qr_code(data, prefix="qrcode", directory="qrcodes"):
 
     # Save the image
     img.save(filepath)
-    full_url = f"{settings.DOMAIN}/{directory}/{filename}"
+    full_url = f"https://www.{settings.DOMAIN}/{directory}/{filename}"
 
     return filename, full_url
 
