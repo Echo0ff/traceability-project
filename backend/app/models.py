@@ -12,6 +12,9 @@ class ResponseBase(SQLModel, Generic[T]):
     code: int = Field(default=200, description="响应代码")
     data: Optional[T] = Field(default=None, description="响应数据")
 
+    class Config:
+        arbitrary_types_allowed = True
+
 
 class UserBase(SQLModel):
     email: str = Field(unique=True, index=True, description="用户邮箱")
