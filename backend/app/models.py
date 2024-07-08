@@ -207,10 +207,16 @@ class TransactionCreate(TransactionBase):
 class PlotRead(PlotCreate):
     id: int = Field(..., description="地块ID")
 
+    class Config:
+        from_attributes = True
+
 
 class ProductRead(ProductCreate):
     id: int = Field(..., description="产品ID")
     remaining_yield: float = Field(..., description="剩余产量")
+
+    class Config:
+        from_attributes = True
 
 
 class GrowerRead(GrowerBase):

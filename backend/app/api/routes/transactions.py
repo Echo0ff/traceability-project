@@ -1,3 +1,4 @@
+from sqlalchemy.orm import joinedload
 from typing import Any, List
 from fastapi import APIRouter
 from sqlmodel import select
@@ -72,15 +73,37 @@ def list_growers(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     return ResponseBase(message="Growers retrieved successfully", data=growers)
 
 
+# @router.get("/growers/{grower_id}", response_model=ResponseBase[GrowerRead])
+# def read_grower(
+#     session: SessionDep,
+#     grower_id: int,
+# ) -> Any:
+#     grower = session.get(Grower, grower_id)
+#     if not grower:
+#         return ResponseBase(message="Grower not found", code=404)
+#     return ResponseBase(message="Grower retrieved successfully", data=grower)
+
+
 @router.get("/growers/{grower_id}", response_model=ResponseBase[GrowerRead])
 def read_grower(
     session: SessionDep,
     grower_id: int,
 ) -> Any:
-    grower = session.get(Grower, grower_id)
+    # 使用 joinedload 预加载 plots 和 products
+    query = select(Grower).options(
+        joinedload(Grower.plots),
+        joinedload(Grower.products)).where(Grower.id == grower_id)
+
+    grower = session.exec(query).first()
+
     if not grower:
         return ResponseBase(message="Grower not found", code=404)
-    return ResponseBase(message="Grower retrieved successfully", data=grower)
+
+    # 使用 model_validate 方法创建 GrowerRead 对象
+    grower_read = GrowerRead.model_validate(grower)
+
+    return ResponseBase(message="Grower retrieved successfully",
+                        data=grower_read)
 
 
 @router.post("/plots/", response_model=ResponseBase[PlotRead])
