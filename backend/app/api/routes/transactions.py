@@ -61,7 +61,7 @@ def create_grower(
     qr_code_filename = generate_qr_code(qr_data,
                                         prefix="grower",
                                         directory="uploads/grower_qrcodes")
-    grower.qr_code = qr_code_filename
+    grower.qr_code = qr_code_filename[1]
     session.commit()
     session.refresh(grower)
     return ResponseBase(message="Grower created successfully", data=grower)
