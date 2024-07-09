@@ -1,3 +1,4 @@
+import json
 from sqlalchemy.orm import joinedload
 from typing import Any, List
 from fastapi import APIRouter
@@ -53,7 +54,8 @@ def create_grower(
                 )
                 session.add(product)
         session.commit()
-        qr_data = f"Grower ID: {grower.id}, Name: {grower.name or grower.company_name}"
+        qr_data = json.dumps({"id": grower.id})
+        # qr_data = f"Grower ID: {grower.id}, Name: {grower.name or grower.company_name}"
         qr_code_filename = generate_qr_code(qr_data,
                                             prefix="grower",
                                             directory="uploads/grower_qrcodes")
