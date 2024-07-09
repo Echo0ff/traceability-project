@@ -75,17 +75,6 @@ def list_growers(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     return ResponseBase(message="Growers retrieved successfully", data=growers)
 
 
-# @router.get("/growers/{grower_id}", response_model=ResponseBase[GrowerRead])
-# def read_grower(
-#     session: SessionDep,
-#     grower_id: int,
-# ) -> Any:
-#     grower = session.get(Grower, grower_id)
-#     if not grower:
-#         return ResponseBase(message="Grower not found", code=404)
-#     return ResponseBase(message="Grower retrieved successfully", data=grower)
-
-
 @router.get("/growers/{grower_id}", response_model=ResponseBase[GrowerRead])
 def read_grower(
     session: SessionDep,

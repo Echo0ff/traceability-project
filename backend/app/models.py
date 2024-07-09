@@ -17,7 +17,7 @@ class ResponseBase(SQLModel, Generic[T]):
 
 
 class UserBase(SQLModel):
-    email: str = Field(unique=True, index=True, description="用户邮箱")
+    phone: str = Field(unique=True, index=True, description="用户手机号")
     is_active: bool = Field(default=True, description="用户是否激活")
     is_superuser: bool = Field(default=False, description="是否为超级用户")
     full_name: Optional[str] = Field(None, description="用户全名")
@@ -28,7 +28,7 @@ class UserCreate(UserBase):
 
 
 class UserCreateOpen(SQLModel):
-    email: str = Field(..., description="用户邮箱")
+    phone: str = Field(..., description="用户邮箱")
     password: str = Field(..., description="用户密码")
     full_name: Optional[str] = Field(None, description="用户全名")
 
@@ -55,6 +55,8 @@ class User(UserBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     hashed_password: str = Field(..., description="哈希后的密码")
     items: List["Item"] = Relationship(back_populates="owner")
+    grower: Optional["Grower"] = Relationship(back_populates="user")
+    middleman: Optional["Middleman"] = Relationship(back_populates="user")
 
 
 class UserOut(UserBase):
@@ -270,6 +272,8 @@ class Grower(GrowerBase, table=True):
             "foreign_keys": "Transaction.seller_id",
         },
     )
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="grower")
 
 
 class Plot(PlotBase, table=True):
@@ -329,6 +333,8 @@ class Middleman(MiddlemanBase, table=True):
     )
     bought_transactions: List["Transaction"] = Relationship(
         back_populates="buyer")
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="middleman")
 
 
 class Consumer(ConsumerBase, table=True):
