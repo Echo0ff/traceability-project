@@ -130,13 +130,25 @@ async def create_grower(
 #     return db_grower
 
 
-def get_grower_by_id(*, session: Session, grower_id: int) -> Grower | None:
-    statement = select(Grower).where(Grower.id == grower_id)
-    session_grower = session.exec(statement).first()
-    return session_grower
+def get_product_by_name(*, session: Session,
+                        product_name: str) -> Product | None:
+    statement = select(Product).where(Product.name == product_name)
+    return session.exec(statement).first()
 
 
 ### Middleman CRUD Operations
+
+
+def get_grower_by_id(*, session: Session, grower_id: int) -> Grower | None:
+    statement = select(Grower).where(Grower.id == grower_id)
+    return session.exec(statement).first()
+
+
+def get_product_by_grower_and_name(*, session: Session, grower_id: int,
+                                   product_name: str) -> Product | None:
+    statement = select(Product).where(Product.grower_id == grower_id,
+                                      Product.name == product_name)
+    return session.exec(statement).first()
 
 
 def create_middleman(*, session: Session,

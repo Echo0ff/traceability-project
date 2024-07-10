@@ -154,7 +154,6 @@ class MiddlemanBase(SQLModel):
     phone_number: str = Field(..., description="联系电话")
     email: Optional[str] = Field(None, description="电子邮箱")
     middleman_type: str = Field(..., description="中间商类型")
-    purchase_type: Optional[str] = Field(None, description="采购类型")
     id_card_number: Optional[str] = Field(None, description="身份证号码")
     id_card_photo: List[str] = Field(default_factory=list,
                                      description="身份证照片URL列表")
@@ -194,8 +193,13 @@ class ProductCreate(ProductBase):
 
 class MiddlemanCreate(MiddlemanBase):
     purchase_from_id: Optional[int] = Field(None, description="采购来源ID")
-    purchase_from_middleman_id: Optional[int] = Field(None,
-                                                      description="上级中间商ID")
+    purchased_product: Optional[str] = Field(None, description="购买的产品")
+    purchased_quantity: Optional[float] = Field(None, description="购买数量")
+    purchase_from_type: Optional[str] = Field(None, description="交易来源")
+    transaction_contract_images: List[str] = Field(default_factory=list,
+                                                   description="交易合同图片URL列表")
+    split_quantities: Optional[List[float]] = Field(None, description="拆分数量列表")
+    split_qr_codes: Optional[List[str]] = Field(None, description="拆分二维码列表")
 
 
 class ConsumerCreate(ConsumerBase):
@@ -232,6 +236,13 @@ class MiddlemanRead(MiddlemanCreate):
     id: int = Field(..., description="中间商ID")
     qr_code: Optional[str] = Field(None, description="二维码")
     transaction_contracts: List[str] = Field(default=[], description="交易合同")
+    split_quantities: List[float] = Field(default=[], description="拆分数量列表")
+    split_qr_codes: List[str] = Field(default=[], description="拆分二维码列表")
+    original_split: Optional[List[float]] = Field(None, description="原始拆分数量")
+    original_qr_codes: Optional[List[str]] = Field(None, description="原始拆分二维码")
+    # id: int = Field(..., description="中间商ID")
+    # qr_code: Optional[str] = Field(None, description="二维码")
+    # transaction_contracts: List[str] = Field(default=[], description="交易合同")
 
 
 class ConsumerRead(ConsumerCreate):
@@ -258,10 +269,10 @@ class Grower(GrowerBase, table=True):
                                                description="种植品种图片URL列表")
     business_license_photos: Optional[List[str]] = Field(
         sa_column=Column(JSON), default=None, description="营业执照照片URL列表")
-    sold_to_middlemen: List["Middleman"] = Relationship(
-        back_populates="purchase_from_grower",
-        sa_relationship_kwargs={"foreign_keys": "Middleman.purchase_from_id"},
-    )
+    # sold_to_middlemen: List["Middleman"] = Relationship(
+    #     back_populates="purchase_from_grower",
+    #     sa_relationship_kwargs={"foreign_keys": "Middleman.purchase_from_id"},
+    # )
     plots: List["Plot"] = Relationship(back_populates="grower")
     products: List["Product"] = Relationship(back_populates="grower")
     sold_transactions: List["Transaction"] = Relationship(
@@ -296,10 +307,38 @@ class Product(ProductBase, table=True):
 class Middleman(MiddlemanBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     qr_code: Optional[str] = Field(None, description="二维码")
-    purchase_from_id: Optional[int] = Field(default=None,
-                                            foreign_key="grower.id")
-    purchase_from_middleman_id: Optional[int] = Field(
-        default=None, foreign_key="middleman.id")
+    purchase_from_id: Optional[int] = Field(default=None)
+    purchase_from_type: Optional[str] = Field(
+        None, description="购买来源类型：grower 或 middleman")
+    purchase_from: Optional["Middleman"] = Relationship(
+        back_populates="sold_to_middlemen",
+        sa_relationship_kwargs={
+            "remote_side":
+            "Middleman.id",
+            "primaryjoin":
+            "and_(foreign(Middleman.purchase_from_id) == Middleman.id, Middleman.purchase_from_type == 'middleman')",
+        })
+    # purchase_from_grower: Optional[Grower] = Relationship(
+    #     back_populates="sold_to_middlemen",
+    #     sa_relationship_kwargs={
+    #         "primaryjoin":
+    #         "and_(foreign(Middleman.purchase_from_id) == Grower.id, Middleman.purchase_from_type == 'grower')",
+    #         "viewonly": True
+    #     })
+    # purchase_from_middleman: Optional["Middleman"] = Relationship(
+    #     back_populates="sold_to_middlemen",
+    #     sa_relationship_kwargs={
+    #         "primaryjoin":
+    #         "and_(foreign(Middleman.purchase_from_id) == Middleman.id, Middleman.purchase_from_type == 'middleman')",
+    #         "remote_side": "Middleman.id",
+    #         "viewonly": True
+    #     })
+    sold_to_middlemen: List["Middleman"] = Relationship(
+        back_populates="purchase_from",
+        sa_relationship_kwargs={
+            "primaryjoin":
+            "and_(foreign(Middleman.purchase_from_id) == Middleman.id, Middleman.purchase_from_type == 'middleman')",
+        })
     transaction_contracts: List[str] = Field(default_factory=list,
                                              sa_column=Column(JSON),
                                              description="交易合同")
@@ -309,19 +348,6 @@ class Middleman(MiddlemanBase, table=True):
     business_license_photos: List[str] = Field(default_factory=list,
                                                sa_column=Column(JSON),
                                                description="营业执照照片URL列表")
-    purchase_from_grower: Optional[Grower] = Relationship(
-        back_populates="sold_to_middlemen",
-        sa_relationship_kwargs={"foreign_keys": "Middleman.purchase_from_id"},
-    )
-    purchase_from_middleman: Optional["Middleman"] = Relationship(
-        back_populates="sold_to_middlemen",
-        sa_relationship_kwargs={
-            "foreign_keys": "Middleman.purchase_from_middleman_id",
-            "remote_side": "Middleman.id",
-        },
-    )
-    sold_to_middlemen: List["Middleman"] = Relationship(
-        back_populates="purchase_from_middleman")
     consumers: List["Consumer"] = Relationship(back_populates="middleman")
     sold_transactions: List["Transaction"] = Relationship(
         back_populates="middleman_seller",
@@ -331,10 +357,28 @@ class Middleman(MiddlemanBase, table=True):
             "foreign_keys": "Transaction.seller_id",
         },
     )
+    remaining_quantity: Optional[float] = Field(None, description="剩余数量")
     bought_transactions: List["Transaction"] = Relationship(
         back_populates="buyer")
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     user: Optional[User] = Relationship(back_populates="middleman")
+    purchased_product: Optional[str] = Field(None, description="购买的产品")
+    purchased_quantity: Optional[float] = Field(None, description="购买数量")
+    transaction_contract_images: List[str] = Field(sa_column=Column(JSON),
+                                                   default_factory=list,
+                                                   description="交易合同图片URL列表")
+    split_quantities: List[float] = Field(sa_column=Column(JSON),
+                                          default_factory=list,
+                                          description="拆分数量列表")
+    split_qr_codes: List[str] = Field(sa_column=Column(JSON),
+                                      default_factory=list,
+                                      description="拆分后的二维码列表")
+    original_split: Optional[List[float]] = Field(default=None,
+                                                  sa_column=Column(JSON),
+                                                  description="原始拆分数量")
+    original_qr_codes: Optional[List[str]] = Field(default=None,
+                                                   sa_column=Column(JSON),
+                                                   description="原始拆分二维码")
 
 
 class Consumer(ConsumerBase, table=True):

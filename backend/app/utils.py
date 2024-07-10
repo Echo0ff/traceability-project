@@ -3,6 +3,8 @@ import logging
 import os
 import random
 import uuid
+from pyzbar.pyzbar import decode
+from PIL import Image
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -24,6 +26,32 @@ client = AcsClient(settings.ACCESS_KEY_ID, settings.ACCESS_KEY_SECRET,
                    settings.REGION)
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+
+def decode_qr_code(qr_code_filename: str) -> str:
+    """
+    Decode a QR code image and return the contained data as a string.
+    
+    :param qr_code_filename: The filename of the QR code image
+    :return: The decoded data as a string
+    """
+    # Construct the full path to the QR code image
+    qr_code_path = os.path.join("uploads", "middleman_qrcodes",
+                                qr_code_filename)
+
+    # Open the image file
+    with Image.open(qr_code_path) as img:
+        # Decode the QR code
+        decoded_objects = decode(img)
+
+        # Check if any QR code was found
+        if not decoded_objects:
+            raise ValueError("No QR code found in the image")
+
+        # Get the data from the first decoded object
+        qr_data = decoded_objects[0].data.decode('utf-8')
+
+        return qr_data
 
 
 def generate_verification_code() -> str:

@@ -5,6 +5,8 @@ WORKDIR /app/
 # Copy the requirements file into the container
 COPY ./requirements.txt /app/
 
+RUN apt-get update && apt-get install -y libzbar0
+
 # Install dependencies using pip and Tsinghua mirror
 RUN pip install --upgrade pip \
     && pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
