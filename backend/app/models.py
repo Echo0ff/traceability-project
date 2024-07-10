@@ -163,6 +163,7 @@ class MiddlemanBase(SQLModel):
     company_registration_number: Optional[str] = Field(None,
                                                        description="公司注册号")
     legal_representative: Optional[str] = Field(None, description="法定代表人")
+    transaction_info: Optional[str] = Field(None, description="交易信息")
 
 
 class ConsumerBase(SQLModel):
