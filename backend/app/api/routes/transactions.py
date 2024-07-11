@@ -166,7 +166,7 @@ def create_middleman(
             db_middleman.split_quantities = middleman.split_quantities or [
                 middleman.purchased_quantity
             ]
-            db_middleman.split_qr_codes = []
+            # db_middleman.split_qr_codes = []
             db_middleman.transaction_contract_images = middleman.transaction_contract_images or []
 
             # 确保拆分数量的总和等于购买数量
@@ -192,6 +192,7 @@ def create_middleman(
             main_qr_code = generate_main_qr_code(db_middleman)
 
             db_middleman.qr_code = main_qr_code
+            db_middleman.split_qr_codes = qr_codes
 
         session.refresh(db_middleman)
 
@@ -722,6 +723,31 @@ def list_middlemen(session: SessionDep,
     middlemen = session.exec(statement).all()
     return ResponseBase(message="Middlemen retrieved successfully",
                         data=middlemen)
+
+
+# @router.get("/middlemen/{middleman_id}",
+#             response_model=ResponseBase[MiddlemanRead])
+# def read_middleman(
+#     session: SessionDep,
+#     middleman_id: int,
+# ) -> Any:
+#     # 查询中间商，并确保加载所有需要的关联数据
+#     middleman = session.get(Middleman, middleman_id)
+#     if not middleman:
+#         return ResponseBase(message="Middleman not found", code=404)
+
+#     # 创建包含所有所需信息的字典
+#     middleman_data = {
+#         "id": middleman.id,
+#         "name": middleman.name,
+#         "middleman_type": middleman.middleman_type,
+#         "qr_code": middleman.qr_code,
+#         "split_qr_codes": middleman.split_qr_codes,
+#         # 添加其他你需要的字段
+#     }
+
+#     return ResponseBase(message="Middleman retrieved successfully",
+#                         data=MiddlemanRead(**middleman_data))
 
 
 @router.get("/middlemen/{middleman_id}",

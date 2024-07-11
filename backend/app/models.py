@@ -241,9 +241,6 @@ class MiddlemanRead(MiddlemanCreate):
     split_qr_codes: List[str] = Field(default=[], description="拆分二维码列表")
     original_split: Optional[List[float]] = Field(None, description="原始拆分数量")
     original_qr_codes: Optional[List[str]] = Field(None, description="原始拆分二维码")
-    # id: int = Field(..., description="中间商ID")
-    # qr_code: Optional[str] = Field(None, description="二维码")
-    # transaction_contracts: List[str] = Field(default=[], description="交易合同")
 
 
 class ConsumerRead(ConsumerCreate):
@@ -319,21 +316,6 @@ class Middleman(MiddlemanBase, table=True):
             "primaryjoin":
             "and_(foreign(Middleman.purchase_from_id) == Middleman.id, Middleman.purchase_from_type == 'middleman')",
         })
-    # purchase_from_grower: Optional[Grower] = Relationship(
-    #     back_populates="sold_to_middlemen",
-    #     sa_relationship_kwargs={
-    #         "primaryjoin":
-    #         "and_(foreign(Middleman.purchase_from_id) == Grower.id, Middleman.purchase_from_type == 'grower')",
-    #         "viewonly": True
-    #     })
-    # purchase_from_middleman: Optional["Middleman"] = Relationship(
-    #     back_populates="sold_to_middlemen",
-    #     sa_relationship_kwargs={
-    #         "primaryjoin":
-    #         "and_(foreign(Middleman.purchase_from_id) == Middleman.id, Middleman.purchase_from_type == 'middleman')",
-    #         "remote_side": "Middleman.id",
-    #         "viewonly": True
-    #     })
     sold_to_middlemen: List["Middleman"] = Relationship(
         back_populates="purchase_from",
         sa_relationship_kwargs={
