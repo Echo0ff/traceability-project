@@ -241,6 +241,7 @@ class MiddlemanRead(MiddlemanCreate):
     split_qr_codes: List[str] = Field(default=[], description="拆分二维码列表")
     original_split: Optional[List[float]] = Field(None, description="原始拆分数量")
     original_qr_codes: Optional[List[str]] = Field(None, description="原始拆分二维码")
+    remaining_quantity: Optional[float] = Field(None, description="剩余产量")
 
 
 class ConsumerRead(ConsumerCreate):

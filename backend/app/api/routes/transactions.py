@@ -73,11 +73,33 @@ def create_grower(
         return ResponseBase(message=f"Database error: {str(e)}", code=400)
 
 
+# @router.get("/growers/", response_model=ResponseBase[List[GrowerRead]])
+# def list_growers(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+#     statement = select(Grower).offset(skip).limit(limit)
+#     growers = session.exec(statement).all()
+#     return ResponseBase(message="Growers retrieved successfully", data=growers)
+
+
 @router.get("/growers/", response_model=ResponseBase[List[GrowerRead]])
 def list_growers(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
-    statement = select(Grower).offset(skip).limit(limit)
-    growers = session.exec(statement).all()
-    return ResponseBase(message="Growers retrieved successfully", data=growers)
+    statement = (select(Grower).options(
+        joinedload(Grower.plots),
+        joinedload(Grower.products).load_only(
+            Product.id, Product.remaining_yield)).offset(skip).limit(limit))
+    growers = session.exec(statement).unique().all()
+
+    # 手动构建响应数据
+    grower_data = []
+    for grower in growers:
+        grower_dict = grower.dict()
+        grower_dict['products'] = [{
+            "id": product.id,
+            "remaining_yield": product.remaining_yield
+        } for product in grower.products]
+        grower_data.append(grower_dict)
+
+    return ResponseBase(message="Growers retrieved successfully",
+                        data=grower_data)
 
 
 @router.get("/growers/{grower_id}", response_model=ResponseBase[GrowerRead])
@@ -234,17 +256,49 @@ def handle_purchase_from_middleman(session: SessionDep,
     if not seller_middleman:
         raise ValueError("Seller middleman not found")
 
-    total_remaining = sum(seller_middleman.split_quantities)
-    if total_remaining < db_middleman.purchased_quantity:
-        raise ValueError("Insufficient quantity from seller middleman")
+    # 检查1：确保分割的 split 之和等于交易总量
+    if sum(db_middleman.split_quantities) != db_middleman.purchased_quantity:
+        raise ValueError(
+            "Sum of split quantities does not match the purchased quantity")
 
-    remaining_to_deduct = db_middleman.purchased_quantity
-    seller_middleman.split_quantities = [
-        max(0, qty - (remaining_to_deduct if remaining_to_deduct > 0 else 0))
-        for qty in seller_middleman.split_quantities
-    ]
-    seller_middleman.split_qr_codes = seller_middleman.split_qr_codes[:len(
-        seller_middleman.split_quantities)]
+    # 检查2：确保卖家中间商有足够的剩余数量
+    if seller_middleman.remaining_quantity < db_middleman.purchased_quantity:
+        raise ValueError(
+            "Insufficient remaining quantity from seller middleman")
+
+    # 更新卖家中间商的剩余数量
+    new_remaining_quantity = seller_middleman.remaining_quantity - db_middleman.purchased_quantity
+
+    # 检查3：确保新的剩余数量不会小于 0
+    if new_remaining_quantity < 0:
+        raise ValueError(
+            "Transaction would result in negative remaining quantity")
+
+    # 更新卖家中间商的数据
+    seller_middleman.remaining_quantity = new_remaining_quantity
+
+    # 不需要更新卖家中间商的 split_quantities 和 split_qr_codes
+
+    return seller_middleman
+
+
+# def handle_purchase_from_middleman(session: SessionDep,
+#                                    db_middleman: Middleman):
+#     seller_middleman = session.get(Middleman, db_middleman.purchase_from_id)
+#     if not seller_middleman:
+#         raise ValueError("Seller middleman not found")
+
+#     total_remaining = sum(seller_middleman.split_quantities)
+#     if total_remaining < db_middleman.purchased_quantity:
+#         raise ValueError("Insufficient quantity from seller middleman")
+
+#     remaining_to_deduct = db_middleman.purchased_quantity
+#     seller_middleman.split_quantities = [
+#         max(0, qty - (remaining_to_deduct if remaining_to_deduct > 0 else 0))
+#         for qty in seller_middleman.split_quantities
+#     ]
+#     seller_middleman.split_qr_codes = seller_middleman.split_qr_codes[:len(
+#         seller_middleman.split_quantities)]
 
 
 def generate_split_qr_codes(db_middleman: Middleman) -> List[str]:
@@ -366,267 +420,6 @@ def get_middleman_split_info(request: MiddlemanSplitInfoRequest,
 
     return MiddlemanSplitInfoOut(data=data, count=count)
 
-
-# def generate_split_qr_codes(db_middleman: Middleman) -> List[str]:
-#     qr_codes = []
-#     for i, quantity in enumerate(db_middleman.split_quantities):
-#         qr_data = json.dumps({
-#             "middleman_id":
-#             db_middleman.id,
-#             "split_index":
-#             i,
-#             "quantity":
-#             quantity,
-#             "product":
-#             db_middleman.purchased_product,
-#             "source":
-#             "middleman",
-#             "purchase_from_id":
-#             db_middleman.purchase_from_id,
-#             "purchase_from_type":
-#             db_middleman.purchase_from_type
-#         })
-#         qr_code_filename = generate_qr_code(
-#             qr_data,
-#             prefix=f"middleman_{db_middleman.id}_split_{i}",
-#             directory="uploads/middleman_qrcodes")
-#         db_middleman.split_qr_codes.append(qr_code_filename[1])
-#         qr_codes.append(qr_code_filename[1])
-#     return qr_codes
-
-# def generate_main_qr_code(db_middleman: Middleman) -> str:
-#     main_qr_data = json.dumps({
-#         "middleman_id":
-#         db_middleman.id,
-#         "quantity":
-#         db_middleman.purchased_quantity,
-#         "product":
-#         db_middleman.purchased_product,
-#         "source":
-#         "middleman",
-#         "purchase_from_id":
-#         db_middleman.purchase_from_id,
-#         "purchase_from_type":
-#         db_middleman.purchase_from_type
-#     })
-#     main_qr_code_filename = generate_qr_code(
-#         main_qr_data,
-#         prefix=f"middleman_{db_middleman.id}_main",
-#         directory="uploads/middleman_qrcodes")
-#     return main_qr_code_filename[1]
-
-# @router.post("/middlemen/", response_model=ResponseBase[MiddlemanRead])
-# def create_middleman(
-#     session: SessionDep,
-#     middleman: MiddlemanCreate,
-# ) -> Any:
-#     try:
-#         with session.begin():
-#             db_middleman = Middleman(**middleman.model_dump(
-#                 exclude={"split_quantities", "transaction_contract_images"}))
-
-#             db_middleman.split_quantities = middleman.split_quantities or [
-#                 middleman.purchased_quantity
-#             ]
-#             db_middleman.split_qr_codes = []
-#             db_middleman.transaction_contract_images = middleman.transaction_contract_images or []
-
-#             # 确保拆分数量的总和等于购买数量
-#             if sum(db_middleman.split_quantities
-#                    ) != db_middleman.purchased_quantity:
-#                 raise ValueError(
-#                     "Sum of split quantities must equal purchased quantity")
-
-#             if db_middleman.purchase_from_type == "grower":
-#                 grower = session.get(Grower, db_middleman.purchase_from_id)
-#                 if not grower:
-#                     raise ValueError("Grower not found")
-
-#                 product = session.exec(
-#                     select(Product).where(
-#                         Product.grower_id == grower.id, Product.name ==
-#                         db_middleman.purchased_product)).first()
-#                 if not product:
-#                     raise ValueError("Product not found for this grower")
-
-#                 if product.remaining_yield < db_middleman.purchased_quantity:
-#                     raise ValueError(
-#                         "Insufficient remaining yield from grower")
-
-#                 product.remaining_yield -= db_middleman.purchased_quantity
-
-#             elif db_middleman.purchase_from_type == "middleman":
-#                 seller_middleman = session.get(Middleman,
-#                                                db_middleman.purchase_from_id)
-#                 if not seller_middleman:
-#                     raise ValueError("Seller middleman not found")
-
-#                 total_remaining = sum(seller_middleman.split_quantities)
-#                 if total_remaining < db_middleman.purchased_quantity:
-#                     raise ValueError(
-#                         "Insufficient quantity from seller middleman")
-
-#                 remaining_to_deduct = db_middleman.purchased_quantity
-#                 for i, qty in enumerate(seller_middleman.split_quantities):
-#                     if qty >= remaining_to_deduct:
-#                         seller_middleman.split_quantities[
-#                             i] -= remaining_to_deduct
-#                         break
-#                     else:
-#                         remaining_to_deduct -= qty
-#                         seller_middleman.split_quantities[i] = 0
-
-#                 seller_middleman.split_quantities = [
-#                     qty for qty in seller_middleman.split_quantities if qty > 0
-#                 ]
-#                 seller_middleman.split_qr_codes = seller_middleman.split_qr_codes[:len(
-#                     seller_middleman.split_quantities)]
-
-#             db_middleman.remaining_quantity = db_middleman.purchased_quantity
-#             session.add(db_middleman)
-#             session.flush()
-
-#             qr_codes = []
-#             for i, quantity in enumerate(db_middleman.split_quantities):
-#                 qr_data = json.dumps({
-#                     "middleman_id":
-#                     db_middleman.id,
-#                     "split_index":
-#                     i,
-#                     "quantity":
-#                     quantity,
-#                     "product":
-#                     db_middleman.purchased_product,
-#                     "source":
-#                     "middleman",
-#                     "purchase_type":
-#                     db_middleman.purchase_type,
-#                     "purchase_from_id":
-#                     db_middleman.purchase_from_id,
-#                     "purchase_from_middleman_id":
-#                     db_middleman.purchase_from_middleman_id
-#                 })
-#                 qr_code_filename = generate_qr_code(
-#                     qr_data,
-#                     prefix=f"middleman_{db_middleman.id}_split_{i}",
-#                     directory="uploads/middleman_qrcodes")
-#                 db_middleman.split_qr_codes.append(qr_code_filename[1])
-#                 qr_codes.append(qr_code_filename[1])
-
-#             main_qr_data = json.dumps({
-#                 "middleman_id":
-#                 db_middleman.id,
-#                 "quantity":
-#                 db_middleman.purchased_quantity,
-#                 "product":
-#                 db_middleman.purchased_product,
-#                 "source":
-#                 "middleman",
-#                 "purchase_type":
-#                 db_middleman.purchase_type,
-#                 "purchase_from_id":
-#                 db_middleman.purchase_from_id,
-#                 "purchase_from_middleman_id":
-#                 db_middleman.purchase_from_middleman_id
-#             })
-#             main_qr_code_filename = generate_qr_code(
-#                 main_qr_data,
-#                 prefix=f"middleman_{db_middleman.id}_main",
-#                 directory="uploads/middleman_qrcodes")
-#             db_middleman.qr_code = main_qr_code_filename[1]
-#             main_qr_code = main_qr_code_filename[1]
-
-#         session.refresh(db_middleman)
-
-#         response_data = db_middleman.dict()
-#         response_data["qr_codes"] = qr_codes
-#         response_data["main_qr_code"] = main_qr_code
-
-#         return ResponseBase(
-#             message="Middleman transaction created successfully",
-#             data=response_data)
-#     except ValueError as ve:
-#         return ResponseBase(message=str(ve), code=400)
-#     except Exception as e:
-#         return ResponseBase(message=f"An error occurred: {str(e)}", code=500)
-
-# @router.post("/middlemen/", response_model=ResponseBase[MiddlemanRead])
-# def create_middleman(
-#     session: SessionDep,
-#     middleman: MiddlemanCreate,
-# ) -> Any:
-#     db_middleman = Middleman(**middleman.model_dump(
-#         exclude={"split_quantities"}))
-
-#     db_middleman.split_quantities = middleman.split_quantities or [
-#         middleman.purchased_quantity
-#     ]
-#     db_middleman.split_qr_codes = []
-
-#     if db_middleman.purchase_source == "grower":
-#         # 首先，根据产品名称找到对应的种植者
-#         product = get_product_by_name(
-#             session=session, product_name=db_middleman.purchased_product)
-#         if not product:
-#             return ResponseBase(message="Product not found", code=404)
-
-#         grower = get_grower_by_id(session=session, grower_id=product.grower_id)
-#         if not grower:
-#             return ResponseBase(message="Grower not found", code=404)
-
-#         if product.remaining_yield < db_middleman.purchased_quantity:
-#             return ResponseBase(
-#                 message="Insufficient remaining yield from grower", code=400)
-
-#         product.remaining_yield -= db_middleman.purchased_quantity
-
-#     session.add(db_middleman)
-#     session.commit()
-#     session.refresh(db_middleman)
-
-#     qr_codes = []
-#     for i, quantity in enumerate(db_middleman.split_quantities):
-#         qr_data = json.dumps({
-#             "middleman_id": db_middleman.id,
-#             "split_index": i,
-#             "quantity": quantity,
-#             "product": db_middleman.purchased_product,
-#             "source": "middleman",
-#             "purchase_type": db_middleman.purchase_type,
-#             "purchase_from_id": db_middleman.purchase_from_id
-#         })
-#         qr_code_filename = generate_qr_code(
-#             qr_data,
-#             prefix=f"middleman_{db_middleman.id}_split_{i}",
-#             directory="uploads/middleman_qrcodes")
-#         db_middleman.split_qr_codes.append(qr_code_filename[1])
-#         qr_codes.append(qr_code_filename[1])
-
-#     # 创建主 QR 码，无论购买类型如何
-#     main_qr_data = json.dumps({
-#         "middleman_id": db_middleman.id,
-#         "quantity": db_middleman.purchased_quantity,
-#         "product": db_middleman.purchased_product,
-#         "source": "middleman",
-#         "purchase_type": db_middleman.purchase_type,
-#         "purchase_from_id": db_middleman.purchase_from_id
-#     })
-#     main_qr_code_filename = generate_qr_code(
-#         main_qr_data,
-#         prefix=f"middleman_{db_middleman.id}_main",
-#         directory="uploads/middleman_qrcodes")
-#     db_middleman.qr_code = main_qr_code_filename[1]
-#     main_qr_code = f"/uploads/middleman_qrcodes/{main_qr_code_filename[1]}"
-
-#     session.commit()
-#     session.refresh(db_middleman)
-
-#     response_data = db_middleman.dict()
-#     response_data["qr_codes"] = qr_codes
-#     response_data["main_qr_code"] = main_qr_code
-
-#     return ResponseBase(message="Middleman created successfully",
-#                         data=response_data)
 
 # @router.post("/middlemen/transaction/",
 #              response_model=ResponseBase[MiddlemanRead])
